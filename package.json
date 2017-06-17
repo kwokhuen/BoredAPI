@@ -18,9 +18,14 @@
   },
   "homepage": "https://github.com/kwokhuen/backend#readme",
   "dependencies": {
+    "app-module-path": "^2.2.0",
     "body-parser": "^1.17.2",
     "express": "^4.15.3",
-    "mongoose": "^4.10.5"
+    "install": "^0.10.1",
+    "mongoose": "^4.10.5",
+    "npm": "^5.0.3",
+    "passport": "^0.3.2",
+    "passport-facebook": "^2.1.1"
   },
   "devDependencies": {
     "nodemon": "^1.11.0"
