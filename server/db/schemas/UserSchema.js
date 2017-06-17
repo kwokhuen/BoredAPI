@@ -7,6 +7,12 @@ const Schema = mongoose.Schema;
 
 // user schema
 const userSchema = new Schema({
+  displayName: {
+    type: String,
+    required: true,
+    minlength: 1,
+    trim: true
+  },
   // firstName: {
   //   type: String,
   //   required: true,
@@ -42,18 +48,6 @@ const userSchema = new Schema({
     token: {
       type: String,
       required: true
-    },
-    email: {
-      type: String,
-      required: true,
-      minlength: 1,
-      trim: true
-    },
-    name: {
-      type: String,
-      required: true,
-      minlength: 1,
-      trim: true
     }
   }
 });

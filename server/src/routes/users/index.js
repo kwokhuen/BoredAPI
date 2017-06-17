@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 
-router.post('/', (req,res,next) => {
-  return res.status(200).send(req.body);
+router.get('/:userId', (req,res,next) => {
+  
 })
 
 module.exports = router;
