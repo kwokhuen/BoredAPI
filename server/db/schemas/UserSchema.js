@@ -1,3 +1,5 @@
+'use strict';
+
 // import mongoose
 const {mongoose} = require('../mongoose');
 const Schema = mongoose.Schema;
@@ -6,7 +8,7 @@ const Schema = mongoose.Schema;
 // const {LocationSchema} = require('./LocationSchema');
 
 // user schema
-const userSchema = new Schema({
+const UserSchema = new Schema({
   displayName: {
     type: String,
     required: true,
@@ -53,4 +55,4 @@ const userSchema = new Schema({
   // }
 });
 
-module.exports = {userSchema};
+module.exports = {UserSchema};

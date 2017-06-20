@@ -25,7 +25,8 @@
     "mongoose": "^4.10.5",
     "npm": "^5.0.3",
     "passport": "^0.3.2",
-    "passport-facebook": "^2.1.1"
+    "passport-facebook": "^2.1.1",
+    "validator": "^7.0.0"
   },
   "devDependencies": {
     "morgan": "^1.8.2",

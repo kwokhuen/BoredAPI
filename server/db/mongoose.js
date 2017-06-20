@@ -1,3 +1,5 @@
+'use strict';
+
 // import mongoose from 'mongoose'
 const mongoose = require('mongoose');
 // import db config

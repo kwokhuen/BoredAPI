@@ -1,7 +1,9 @@
+'use strict';
+
 const {mongoose} = require('db/mongoose');
-const {userSchema} = require('db/schemas/userSchema');
+const {UserSchema} = require('db/schemas/UserSchema');
 
 // User model used to create user document
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model('User', UserSchema);
 
 module.exports = {User};
