@@ -5,7 +5,7 @@ const {mongoose} = require('../mongoose');
 const Schema = mongoose.Schema;
 
 // import sub-schema
-const {LocationSchema} = require('./LocationSchema');
+//const {LocationSchema} = require('./LocationSchema');
 const {UserSchema} = require('./UserSchema')
 
 // user schema
@@ -16,16 +16,22 @@ const EventSchema = new Schema({
     trim: true,
     required: true
   },
-  location: LocationSchema,
-  time: {
-    type: Date,
-    required: true
-  },
-  onGoing: {
-    type: Boolean,
-    required: true
-  },
-  attendees: [UserSchema],
+  // time: {
+  //   type: Date,
+  //   required: true
+  // },
+  // onGoing: {
+  //   type: Boolean,
+  //   required: true
+  // },
+  admins: [UserSchema],
+  attendees: [
+    UserSchema
+    // status:{
+    //   type: Number, //0 for going, 1 for maybe,...
+    //   required: true
+    // }
+  ],
   description: {
     type: String,
     required: true,

@@ -2,6 +2,8 @@
 
 // import mongoose
 const {mongoose} = require('../mongoose');
+require('mongoose-type-url');
+
 const Schema = mongoose.Schema;
 
 // import sub-schema
@@ -40,19 +42,12 @@ const UserSchema = new Schema({
     required: true,
     minlength: 1,
     trim: true
+  },
+  profilePic: {
+    type: String,//mongoose.SchemaTypes.Url,
+    required: false,
+    trim: true
   }
-  //,
-  // location: LocationSchema,
-  // facebook: {
-  //   id: {
-  //     type: String,
-  //     required: true
-  //   },
-  //   token: {
-  //     type: String,
-  //     required: true
-  //   }
-  // }
 });
 
 module.exports = {UserSchema};

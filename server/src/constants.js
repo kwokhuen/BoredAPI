@@ -7,5 +7,7 @@ module.exports = {
     MIN_AGE : 14,
     MAX_AGE : 100
   },
-  EVENT_INFO_CONST:{}
+  EVENT_INFO_CONST:{
+    
+  }
 }

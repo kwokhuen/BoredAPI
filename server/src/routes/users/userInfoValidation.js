@@ -4,124 +4,122 @@ const validator = require('validator');
 const {User} = require('../../../db/models/User');
 const {USER_INFO_CONST} = require('../../constants');
 
-var userInfoValidation = (req, next, callback) =>{
+var userInfoValidation = (req, next, partialUpdate, callback) =>{
   //TODO: If we have a unique field, should check uniqueness here too
-  // uniquely identify a user: cell?username?email?
+  // uniquely identify a user: cell?usercode?email?
 
+  //partialUpdate allows null values for required fields
   // verify the request body has all fields defined and are valid
-  var haveError = false;
-  var argError = new Error('Error(s) in userInfo data');
+  let haveError = false;
+  const argError = new Error('Error(s) in userInfo data');
+  argError.status = 400;
   argError.name = 'BadArgument';
   argError.target = 'userInfo';
   argError.details = [];
 
-  if(req.body.displayName === null){
-    haveError = true;
-    var dnError = new Error();
-    dnError.name = 'NullValue';
-    dnError.target = 'displayName';
-    dnError.message = 'Display name must not be null';
-    argError.details.push(dnError);
-  } else if(req.body.displayName.length<USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH
-    || req.body.displayName.length > USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH){
-    haveError = true;
-    var dnError = new Error();
-    dnError.name = 'BadValue';
-    dnError.target = 'displayName';
-    dnError.message = 'Display name\'s length must be within '
-      + USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH + ' and '
-      + USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH;
-    argError.details.push(dnError);
-  }
+  var fieldValidation = function(field, fieldName, required, fieldType,
+    badValueMessage, validateFunction){
+    if(field === undefined || field === null){
+      // check if value is null/undefined
+      if(required)
+        if(field === null || !partialUpdate){
+          haveError = true;
+          const inputErr = new Error();
+          inputErr.code = 'NullValue';
+          inputErr.target = fieldName;
+          inputErr.input = 'undefined';
+          inputErr.message = fieldName + ' must not be null';
+          argError.details.push(inputErr);
+        }
+    } else if(typeof(field)!==fieldType){
+      // check if input type is correct
+      haveError = true;
+      const inputErr = new Error();
+      inputErr.code = 'TypeError';
+      inputErr.target = fieldName;
+      inputErr.input = field;
+      inputErr.message = fieldName+' must be a '+fieldType;
+      argError.details.push(inputErr);
+    } else if(!validateFunction(field)){
+      // check if input is valid
+      haveError = true;
+      const inputErr = new Error();
+      inputErr.code = 'BadValue';
+      inputErr.target = fieldName;
+      inputErr.input = field;
+      inputErr.message = badValueMessage;
+      argError.details.push(inputErr);
+    }
+  };
 
-  if(req.body.firstName === null){
-    haveError = true;
-    var fnError = new Error();
-    fnError.name = 'NullValue';
-    fnError.target = 'firstName';
-    fnError.message = 'First name must not be null';
-    argError.details.push(fnError);
-  } else if(req.body.firstName.length<USER_INFO_CONST.MIN_NAME_LENGTH
-    || req.body.firstName.length > USER_INFO_CONST.MAX_NAME_LENGTH){
-    haveError = true;
-    var fnError = new Error();
-    fnError.name = 'BadValue';
-    fnError.target = 'firstName';
-    fnError.message = 'First name\'s length must be within '
-      + USER_INFO_CONST.MIN_NAME_LENGTH + ' and '
-      + USER_INFO_CONST.MAX_NAME_LENGTH;
-    argError.details.push(fnError);
-  }
+  // define bad value messages
+  const badDisplayName = 'Display name\'s length must be between '
+    + USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH + ' and '
+    + USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH;
 
-  if(req.body.lastName === null){
-    haveError = true;
-    var lnError = new Error();
-    lnError.name = 'NullValue';
-    lnError.target = 'lastName';
-    lnError.message = 'Last name must not be null';
-    argError.details.push(lnError);
-  } else if(req.body.lastName.length<USER_INFO_CONST.MIN_NAME_LENGTH
-    || req.body.lastName.length > USER_INFO_CONST.MAX_NAME_LENGTH){
-    haveError = true;
-    var lnError = new Error();
-    lnError.name = 'BadValue';
-    lnError.target = 'lastName';
-    lnError.message = 'Last name\'s length must be within '
-      + USER_INFO_CONST.MIN_NAME_LENGTH + ' and '
-      + USER_INFO_CONST.MAX_NAME_LENGTH;
-    argError.details.push(lnError);
-  }
+  const badFirstName = 'First name\'s length must be between '
+    + USER_INFO_CONST.MIN_NAME_LENGTH + ' and '
+    + USER_INFO_CONST.MAX_NAME_LENGTH;
 
-  if(req.body.age === null){
-    haveError = true;
-    var ageError = new Error();
-    ageError.name = 'NullValue';
-    ageError.target = 'age';
-    ageError.message = 'Age must not be null';
-    argError.details.push(ageError);
-  } else if(req.body.age<USER_INFO_CONST.MIN_AGE
-    || req.body.age>USER_INFO_CONST.MAX_AGE){
-    haveError = true;
-    var ageError = new Error();
-    ageError.name = 'BadValue';
-    ageError.target = 'age';
-    ageError.message = 'Age must be within '
-      + USER_INFO_CONST.MIN_NAME_LENGTH + ' and '
-      + USER_INFO_CONST.MAX_NAME_LENGTH;
-    argError.details.push(ageError);
-  }
+  const badLastName = 'Last name\'s length must be between '
+    + USER_INFO_CONST.MIN_NAME_LENGTH + ' and '
+    + USER_INFO_CONST.MAX_NAME_LENGTH;
 
-  if(req.body.gender === null){
-    haveError = true;
-    var gdError = new Error();
-    gdError.name = 'NullValue';
-    gdError.target = 'gender';
-    gdError.message = 'Gender must not be null';
-    argError.details.push(gdError);
-  } else if(req.body.gender!==0 && req.body.gender!==1){
-    haveError = true;
-    var gdError = new Error();
-    gdError.name = 'BadValue';
-    gdError.target = 'gender';
-    gdError.message = 'Gender must be 0 or 1';
-    argError.details.push(gdError);
-  }
+  const badAge = 'Age must be between '
+    + USER_INFO_CONST.MIN_AGE + ' and '
+    + USER_INFO_CONST.MIN_AGE;
 
-  if(req.body.email === null){
-    haveError = true;
-    var emailError = new Error();
-    emailError.name = 'NullValue';
-    emailError.target = 'email';
-    emailError.message = 'Email must not be null';
-    argError.details.push(emailError);
-  } else if(!validator.isEmail(req.body.email)){
-    haveError = true;
-    var emailError = new Error();
-    emailError.name = 'BadValue';
-    emailError.target = 'email';
-    emailError.message = req.body.email + ' is not a valid email';
-    argError.details.push(emailError);
-  }
+  const badGender = 'Gender must be a number (0 for female, 1 for male)';
+
+  const badEmail = 'Not a valid email';
+
+  const badProfilePic = 'Not a valid URL';
+
+  //validate displayName
+  fieldValidation(req.body.displayName, 'displayName', true, 'string',
+    badDisplayName, function(field){
+      return (field.length>=USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH
+        && field.length <= USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH);
+    });
+
+  //validate firstName
+  fieldValidation(req.body.firstName, 'firstName', true, 'string',
+    badFirstName, function(field){
+      return (field.length>=USER_INFO_CONST.MIN_NAME_LENGTH
+        && field.length <= USER_INFO_CONST.MAX_NAME_LENGTH);
+    });
+
+  //validate lastName
+  fieldValidation(req.body.lastName, 'lastName', true, 'string',
+    badLastName, function(field){
+      return (field.length>=USER_INFO_CONST.MIN_NAME_LENGTH
+        && field.length <= USER_INFO_CONST.MAX_NAME_LENGTH);
+    });
+
+  //validate age
+  fieldValidation(req.body.age, 'age', true, 'number',
+    badAge, function(field){
+      return (field >= USER_INFO_CONST.MIN_AGE
+        || field <= USER_INFO_CONST.MAX_AGE);
+    });
+
+  //validate gender
+  fieldValidation(req.body.gender, 'gender', true, 'number',
+    badGender, function(field){
+      return (field === 1 || field === 0);
+    });
+
+  //validate email
+  fieldValidation(req.body.email, 'email', true, 'string',
+    badEmail, function(field){
+      return validator.isEmail(field);
+    });
+
+  //validate profilePic
+  fieldValidation(req.body.profilePic, 'profilePic', false, 'string',
+    badProfilePic, function(field){
+      return validator.isURL(field);
+    });
 
   if(haveError)
     return next(argError);

@@ -26,8 +26,8 @@ app.use(logger('dev'));
 
 // Routes
 app.use('/', index);
-app.use('/events', events);
-app.use('/users', users);
+app.use('/event', events);
+app.use('/user', users);
 app.use('/auth', auth);
 
 // Error handling
