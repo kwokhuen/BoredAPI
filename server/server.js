@@ -34,8 +34,9 @@ app.use('/auth', auth);
 
 // set status code to 404 when route doesn't match any of the routers above
 app.use(function(req, res, next){
-  var err = new Error('Not found.');
+  var err = new Error('No handler defined for the route requested.');
   err.status = 404;
+  err.name = 'NotFound';
   next(err);
 });
 

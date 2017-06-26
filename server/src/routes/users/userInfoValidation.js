@@ -80,46 +80,46 @@ var userInfoValidation = (req, next, partialUpdate, callback) =>{
     badDisplayName, function(field){
       return (field.length>=USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH
         && field.length <= USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH);
-    });
+  });
 
   //validate firstName
   fieldValidation(req.body.firstName, 'firstName', true, 'string',
     badFirstName, function(field){
       return (field.length>=USER_INFO_CONST.MIN_NAME_LENGTH
         && field.length <= USER_INFO_CONST.MAX_NAME_LENGTH);
-    });
+  });
 
   //validate lastName
   fieldValidation(req.body.lastName, 'lastName', true, 'string',
     badLastName, function(field){
       return (field.length>=USER_INFO_CONST.MIN_NAME_LENGTH
         && field.length <= USER_INFO_CONST.MAX_NAME_LENGTH);
-    });
+  });
 
   //validate age
   fieldValidation(req.body.age, 'age', true, 'number',
     badAge, function(field){
       return (field >= USER_INFO_CONST.MIN_AGE
         || field <= USER_INFO_CONST.MAX_AGE);
-    });
+  });
 
   //validate gender
   fieldValidation(req.body.gender, 'gender', true, 'number',
     badGender, function(field){
       return (field === 1 || field === 0);
-    });
+  });
 
   //validate email
   fieldValidation(req.body.email, 'email', true, 'string',
     badEmail, function(field){
       return validator.isEmail(field);
-    });
+  });
 
   //validate profilePic
   fieldValidation(req.body.profilePic, 'profilePic', false, 'string',
     badProfilePic, function(field){
       return validator.isURL(field);
-    });
+  });
 
   if(haveError)
     return next(argError);

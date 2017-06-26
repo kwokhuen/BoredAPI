@@ -25,13 +25,7 @@ const EventSchema = new Schema({
   //   required: true
   // },
   admins: [UserSchema],
-  attendees: [
-    UserSchema
-    // status:{
-    //   type: Number, //0 for going, 1 for maybe,...
-    //   required: true
-    // }
-  ],
+  attendees: [UserSchema],
   description: {
     type: String,
     required: true,
