@@ -57,6 +57,14 @@ var userInfoValidation = (userInfo, next, partialUpdate, callback) =>{
     + USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH + ' and '
     + USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH;
 
+  const badUserName = 'Username\'s length must be between '
+    + USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH + ' and '
+    + USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH;
+
+  const badPassword = 'Password\'s length must be between '
+    + USER_INFO_CONST.MIN_PASSWORD_LENGTH + ' and '
+    + USER_INFO_CONST.MAX_PASSWORD_LENGTH;
+
   const badFirstName = 'First name\'s length must be between '
     + USER_INFO_CONST.MIN_NAME_LENGTH + ' and '
     + USER_INFO_CONST.MAX_NAME_LENGTH;
@@ -80,6 +88,20 @@ var userInfoValidation = (userInfo, next, partialUpdate, callback) =>{
     badDisplayName, function(field){
       return (field.length>=USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH
         && field.length <= USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH);
+  });
+
+  //validate username
+  fieldValidation(userInfo.username, 'username', true, 'string',
+    badUserName, function(field){
+      return (field.length>=USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH
+        && field.length <= USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH);
+  });
+
+  //validate password
+  fieldValidation(userInfo.password, 'password', true, 'string',
+    badPassword, function(field){
+      return (field.length>=USER_INFO_CONST.MIN_PASSWORD_LENGTH
+        && field.length <= USER_INFO_CONST.MAX_PASSWORD_LENGTH);
   });
 
   //validate firstName

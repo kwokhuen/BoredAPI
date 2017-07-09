@@ -7,6 +7,9 @@ const {Event} = require('../../../db/models/Event')
 const {User} = require('../../../db/models/User')
 const router = express.Router();
 const {eventInfoValidation} = require('./eventInfoValidation')
+const authenticate = require('../users/middlewares/authenticate');
+const {ObjectId} = require('mongodb');
+const _ = require('lodash');
 
 // param middleware
 //---------copying from user routes, should put it in a different file later---------
@@ -62,10 +65,9 @@ router.param('eventId', function(req, res, next, id){
 
 // Routes
 
-// ------------------Event Collection--------------------
 // ----------<for development use>-----------
 // get all events
-// API GET localhost:3000/event/dev
+// API GET localhost:3000/events/dev
 router.get('/dev', (req,res) =>{
   Event.find({}, function(err, result){
     if(err) return err;
@@ -73,80 +75,89 @@ router.get('/dev', (req,res) =>{
   });
 });
 
+// delete all events
+// API DELETE localhost:3000/events/dev
+router.delete('/dev', (req,res) =>{
+  if(Event.collection.drop()){
+    res.status(202).send();
+  } else {
+    res.status(500).send("Error");
+  }
+});
+
+// ------------------Event Collection--------------------
+
+// create an event
+// API: POST localhost:3000/events
+router.post('/', authenticate, (req, res, next) => {
+  let eventData = _.pick(req.body, ['name','description']);
+  eventInfoValidation(eventData, next, false, ()=>{
+    //if info valid, create the event
+    var event = new Event(eventData);
+    event.admins.push(req.user);
+    event.save(function(err, createdEvent){
+      if(err) return next(err);
+      res.status(201).json(createdEvent);
+    });
+  });
+});
+
 // ----------------Event----------------------
 
 // get an event info
 // API GET localhost:3000/event/:eventId
-router.get('/:eventId',
-  //TODO: insert user authentication middleware:
-  // permission: any user
-  (req,res) =>{
+router.get('/:eventId', authenticate, (req,res) =>{
   res.status(200).json(res.event);
-});
-
-// create an event
-// API: POST localhost:3000/event
-router.post('/',
-  //TODO: insert user authentication middleware:
-  // permission: any user
-  (req, res, next) => {
-    eventInfoValidation(req, next, ()=>{
-      //if info valid, create the event
-      var event = new Event(req.body);
-      event.save(function(err, createdEvent){
-        if(err) return next(err);
-        res.status(201).json(createdEvent);
-      });
-    });
 });
 
 // update an event - e.g location, time, date, name
 // API: PUT localhost:3000/users/:userId/events/:eventId
-router.put('/:eventId',
-  //TODO: insert user authentication middleware:
-  // permission: event admin
-  (req, res, next) => {
-    eventInfoValidation(req, next, ()=>{
-      //if info valid, update the event
-      const unsetFields = {};
-      for(let i in req.body){
-        if(req.body[i]===null)
-          unsetFields[i] = null;
-      };
-      // updateFields: fields to update
-      const updateFields = {};
-      for(let i in req.body){
-        if(req.body[i]!==null)
-          updateFields[i] = req.body[i];
-      };
-      Event.update({'_id':res.event._id},
-        {$set:updateFields},
-        {$unset: unsetFields},
-        function(err, modifiedEvent){
-        // error handling
-        if(err) return next(err);
-        res.status(202).send();
-      });
+router.put('/:eventId',authenticate, (req, res, next) => {
+  if(!res.event.isAdmin(req.user)){
+    let err = new Error('User is not event admin');
+    err.status = 404;
+    err.name = 'Not admin';
+    err.target = 'user';
+    return next(err);
+  }
+  let eventData = _.pick(req.body, ['name','description']);
+  eventInfoValidation(eventData, next, true, ()=>{
+    for(let i in eventData){
+      //update event info
+      if(eventData[i]!==null)
+        res.event.set(i,eventData[i]);
+      else { //unset fields if they are null
+        res.event.set(i,undefined);
+      }
+    };
+    res.event.save(function(err){
+      if(err) return next(err);
+      res.status(202).send();
     });
+  });
 });
 
-// Delete an event - the whole event will be terminated if the host decided to remove the event
+// Delete an event - the whole event will be terminated if the an admin decided to remove the event
 // API: DELETE localhost:3000/users/:userId/events/:eventId
-router.delete('/:eventId',
-  //TODO: insert user authentication middleware:
-  // permission: event admin
-  (req, res, next) => {
-    res.event.remove(function(err){
-      if(err){ return next(err);}
-      res.status(204).send();
-    });
+router.delete('/:eventId', authenticate, (req, res, next) => {
+  if(!res.event.isAdmin(req.user)){
+    let err = new Error('User is not event admin');
+    err.status = 404;
+    err.name = 'Not admin';
+    err.target = 'user';
+    return next(err);
+  }
+  res.event.remove(function(err){
+    if(err){ return next(err);}
+    res.status(204).send();
+  });
 });
 
 //---------------Event Attendee Collection--------------
 
 // Get the whole list of attendees of an event
 // API: GET /events/:eventId/attendee
-router.get('/:eventId/attendee', (req,res) =>{
+router.get('/:eventId/attendee', authenticate, (req,res) =>{
   res.status(200).json(res.event.attendees);
 });
 
@@ -154,9 +165,17 @@ router.get('/:eventId/attendee', (req,res) =>{
 
 // Add user :userId to the attendees list
 // API: POST /events/:eventId/attendee/:userId
-router.post('/:eventId/attendee/:userId', (req,res) =>{
-  //check if user already in attendees list
-  if(res.event.attendees.id(req.params.userId)){
+router.post('/:eventId/attendee/:userId', authenticate, (req,res,next) =>{
+  //allowed user: self
+  if (req.user._id.toString() !== req.params.userId) {
+    let err = new Error(req.params.userId+' does not match currently logged in user');
+    err.status = 404;
+    err.name = 'Id Mismatched';
+    err.target = 'userId';
+    return next(err);
+  }
+  //check if user already in attendees list or admin list
+  if(res.event.isAttendee(res.user) || res.event.isAdmin(res.user)){
     let err = new Error('User already in attendees list');
     err.status = 409;
     err.name = 'BadRequest';
@@ -172,7 +191,23 @@ router.post('/:eventId/attendee/:userId', (req,res) =>{
 
 // Remove user :userId from the attendee list
 // API: DELETE /events/:eventId/attendee/:userId
-router.delete('/:eventId/attendee/:userId', (req,res) =>{
+router.delete('/:eventId/attendee/:userId', authenticate, (req,res,next) =>{
+  //allowed user: self
+  if (req.user._id.toString() !== req.params.userId) {
+    let err = new Error(req.params.userId+' does not match currently logged in user');
+    err.status = 404;
+    err.name = 'Id Mismatched';
+    err.target = 'userId';
+    return next(err);
+  }
+  //check if user in attendees list
+  if(!res.event.isAttendee(res.user)){
+    let err = new Error('User is not an attendee.');
+    err.status = 409;
+    err.name = 'BadRequest';
+    err.target = 'attendee';
+    return next(err);
+  }
   res.event.attendees.pull(req.params.userId);
   res.event.save(function(err, event){
     if(err) return next(err);

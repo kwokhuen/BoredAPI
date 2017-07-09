@@ -6,8 +6,9 @@ const {Event} = require('../../../db/models/Event')
 const {USER_INFO_CONST} = require('../../constants');
 const {EVENT_INFO_CONST} = require('../../constants');
 
-var eventInfoValidation = (req, next, callback) =>{
-  //verify event info
+var eventInfoValidation = (eventInfo, next, partialUpdate, callback) =>{
+  //partialUpdate allows null values for required fields
+  // verify the request body has all fields defined and are valid
 
   var haveError = false;
   var argError = new Error('Error(s) in event info');
@@ -51,7 +52,6 @@ var eventInfoValidation = (req, next, callback) =>{
     }
   };
 
-
   // define bad value messages
   const badName = 'Event name\'s length must be between '
     + EVENT_INFO_CONST.MIN_NAME_LENGTH + ' and '
@@ -62,13 +62,13 @@ var eventInfoValidation = (req, next, callback) =>{
     + EVENT_INFO_CONST.MAX_DESCRIPTION_LENGTH;
 
   //validate fields
-  fieldValidation(req.body.name, 'name', true, 'string',
+  fieldValidation(eventInfo.name, 'name', true, 'string',
     badName, function(field){
       return (field.length>=EVENT_INFO_CONST.MIN_NAME_LENGTH
         && field.length <= EVENT_INFO_CONST.MAX_NAME_LENGTH);
   });
 
-  fieldValidation(req.body.description, 'description', true, 'string',
+  fieldValidation(eventInfo.description, 'description', true, 'string',
     badDescription, function(field){
       return (field.length>=EVENT_INFO_CONST.MIN_DESCRIPTION_LENGTH
         && field.length <= EVENT_INFO_CONST.MAX_DESCRIPTION_LENGTH);

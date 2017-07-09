@@ -9,7 +9,6 @@ const {userInfoValidation} = require('./userInfoValidation');
 const authenticate = require('./middlewares/authenticate');
 const {ObjectId} = require('mongodb');
 const _ = require('lodash');
-const bcrypt = require('bcryptjs');
 
 // param middleware
 router.param('userId', function(req, res, next, id){
@@ -57,7 +56,6 @@ router.delete('/dev', (req,res) =>{
   } else {
     res.status(500).send("Error");
   }
-  //User.collection.drop(err=>{return err;});
 });
 
 // ----------<for development use>-----------
@@ -156,13 +154,12 @@ router.get('/:userId', authenticate, (req,res,next) =>{
 router.put('/:userId', authenticate, (req,res, next) => {
   //allowed user: self
   if (req.user._id.toString() !== req.params.userId) {
-    var err = new Error(req.params.userId+' does not match currently logged in user');
+    let err = new Error(req.params.userId+' does not match currently logged in user');
     err.status = 404;
     err.name = 'Id Mismatched';
     err.target = 'userId';
     return next(err);
   }
-
   let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
   //check if request info validity
   userInfoValidation(userData, next, true, ()=>{
@@ -184,7 +181,7 @@ router.put('/:userId', authenticate, (req,res, next) => {
 // --------------------User login/logout-----------------------
 
 // login route
-// http://localhost:3000/users/login
+// API POST localhost:3000/users/login
 router.post('/login', (req,res,next) => {
   let userData = _.pick(req.body, ['username', 'password']);
   User.findByCredential(userData.username, userData.password).then(user => {
@@ -195,7 +192,7 @@ router.post('/login', (req,res,next) => {
 })
 
 // logout route
-// http://localhost:3000/users/logout
+// API DELETE localhost:3000/users/logout
 router.delete('/logout', authenticate, (req,res,next) => {
   let user = req.user;
   let token = req.token;

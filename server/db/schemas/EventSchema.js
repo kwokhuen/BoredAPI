@@ -34,4 +34,20 @@ const EventSchema = new Schema({
   }
 });
 
+//return if user belongs to admin group
+EventSchema.methods.isAdmin = function(user) {
+  if(this.admins.id(user._id))
+    return true;
+  else
+    return false;
+}
+
+//return if user belongs to admin group
+EventSchema.methods.isAttendee = function(user) {
+  if(this.attendees.id(user._id))
+    return true;
+  else
+    return false;
+}
+
 module.exports = {EventSchema};

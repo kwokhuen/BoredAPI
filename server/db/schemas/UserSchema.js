@@ -27,6 +27,12 @@ const UserSchema = new Schema({
     minlength: 1,
     trim: true
   },
+  password: {
+    type: String,
+    required: true,
+    trim: true,
+    minlength: 10
+  },
   firstName: {
     type: String,
     required: true,
@@ -57,13 +63,6 @@ const UserSchema = new Schema({
     type: String,//mongoose.SchemaTypes.Url,
     required: false,
     trim: true
-  },
-  //-------------new fields-----------------
-  password: {
-    type: String,
-    required: true,
-    trim: true,
-    minlength: 10
   },
   tokens: [{
     access: {
@@ -135,12 +134,12 @@ UserSchema.methods.generateAuthToken = function() {
   return user.save().then(() => token);
 }
 
-// override mongoose to only send back _id, username and email
-// UserSchema.methods.toJSON = function() {
-//   let user = this;
-//   let userObject = user.toObject();
-//   return _.pick(userObject, ['_id', 'username', 'email'])
-// }
+// override mongoose to only send back _id, username and displayName
+UserSchema.methods.toJSON = function() {
+  let user = this;
+  let userObject = user.toObject();
+  return _.pick(userObject, ['_id', 'username', 'displayName'])
+}
 
 UserSchema.methods.removeToken = function(token) {
   let user = this;
