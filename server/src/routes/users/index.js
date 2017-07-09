@@ -4,8 +4,8 @@ const express = require('express');
 const validator = require('validator');
 const router = express.Router();
 const mongoose = require('mongoose');
-const {User} = require('../../../db/models/User')
-const {userInfoValidation} = require('./userInfoValidation')
+const {User} = require('db/models/User');
+const {userInfoValidation} = require('./userInfoValidation');
 const authenticate = require('./middlewares/authenticate');
 const {ObjectId} = require('mongodb');
 const _ = require('lodash');
@@ -135,22 +135,12 @@ router.post('/', (req, res, next) => {
   });
 });
 
-// login route
-// http://localhost:3000/users/login
-router.post('/login', (req,res,next) => {
-  let userData = _.pick(req.body, ['username', 'password']);
-  User.findByCredential(userData.username, userData.password).then(user => {
-    return user.generateAuthToken().then(token => {
-      res.header('x-auth', token).send(user);
-    })
-  }).catch(e => res.status(400).send())
-})
-
 // --------------------User-----------------------
 
 // get a user profile
 // API GET localhost:3000/users/:userId
 router.get('/:userId', authenticate, (req,res,next) =>{
+  //allowed user: self
   if (req.user._id.toString() !== req.params.userId) {
     var err = new Error(req.params.userId+' does not match currently logged in user');
     err.status = 404;
@@ -164,6 +154,7 @@ router.get('/:userId', authenticate, (req,res,next) =>{
 // update user profile
 // API PUT localhost:3000/users/:userId
 router.put('/:userId', authenticate, (req,res, next) => {
+  //allowed user: self
   if (req.user._id.toString() !== req.params.userId) {
     var err = new Error(req.params.userId+' does not match currently logged in user');
     err.status = 404;
@@ -171,48 +162,57 @@ router.put('/:userId', authenticate, (req,res, next) => {
     err.target = 'userId';
     return next(err);
   }
+
   let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
-
+  //check if request info validity
   userInfoValidation(userData, next, true, ()=>{
-    //if info valid, modify the user
-    // unsetFields: fields to unset
-
-    const unsetFields = {};
-    for(let i in req.body){
-      if(req.body[i]===null)
-        unsetFields[i] = null;
+    for(let i in userData){
+      //update user info
+      if(userData[i]!==null)
+        req.user.set(i,userData[i]);
+      else { //unset fields if they are null
+        req.user.set(i,undefined);
+      }
     };
-    // updateFields: fields to update
-    const updateFields = {};
-    for(let i in req.body){
-      if(req.body[i]!==null)
-        updateFields[i] = req.body[i];
-    };
-
-    //User.findByIdAndUpdate(req.user._id,
-    User.findByIdAndUpdate(req.user._id,
-      {$set:updateFields},
-      {$unset: unsetFields},
-      function(err, modifiedUser){
-      // error handling
+    req.user.save(function(err){
       if(err) return next(err);
       res.status(202).send();
     });
   });
 });
 
-// delete a user profile
-// API DELETE localhost:3000/users/:userId
-router.delete('/:userId',
-  //TODO: insert user authentication middleware:
-  // permission: after cell phone verified
-  (req, res, next) => {
-    //TODO: delete all data associated with that user: events, etc
-    res.user.remove(function(err){
-      if(err) return next(err);
-      res.status(202).send();
-    });
-});
+// --------------------User login/logout-----------------------
+
+// login route
+// http://localhost:3000/users/login
+router.post('/login', (req,res,next) => {
+  let userData = _.pick(req.body, ['username', 'password']);
+  User.findByCredential(userData.username, userData.password).then(user => {
+    return user.generateAuthToken().then(token => {
+      res.header('x-auth', token).send(user);
+    })
+  }).catch(e => res.status(400).send())
+})
+
+// logout route
+// http://localhost:3000/users/logout
+router.delete('/logout', authenticate, (req,res,next) => {
+  let user = req.user;
+  let token = req.token;
+  user.removeToken(token).then(() => res.status(200).send(), () => res.status(400).send());
+})
+
+// // delete a user profile
+// // API DELETE localhost:3000/users/:userId
+// router.delete('/:userId',
+//   //TODO: insert user authentication middleware:
+//   (req, res, next) => {
+//     //TODO: delete all data associated with that user: events, etc
+//     res.user.remove(function(err){
+//       if(err) return next(err);
+//       res.status(202).send();
+//     });
+// });
 
 // NOTE for frontend convenience
 // later may need a route to verify username/email/cell uniqueness

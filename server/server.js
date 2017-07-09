@@ -40,7 +40,7 @@ app.use(function(req, res, next){
   next(err);
 });
 
-// Error handler: (overwriting default error handler)
+// Error handler: (overriding default error handler)
 // returns json instead of html by default
 // returns 500 if no status code specified
 app.use(function(err, req, res, next){
