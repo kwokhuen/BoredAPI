@@ -4,7 +4,7 @@ const validator = require('validator');
 const {User} = require('../../../db/models/User');
 const {USER_INFO_CONST} = require('../../constants');
 
-var userInfoValidation = (req, next, partialUpdate, callback) =>{
+var userInfoValidation = (requestBody, next, partialUpdate, callback) =>{
   //TODO: If we have a unique field, should check uniqueness here too
   // uniquely identify a user: cell?usercode?email?
 
@@ -76,47 +76,47 @@ var userInfoValidation = (req, next, partialUpdate, callback) =>{
   const badProfilePic = 'Not a valid URL';
 
   //validate displayName
-  fieldValidation(req.body.displayName, 'displayName', true, 'string',
+  fieldValidation(requestBody.displayName, 'displayName', true, 'string',
     badDisplayName, function(field){
       return (field.length>=USER_INFO_CONST.MIN_DISPLAYNAME_LENGTH
         && field.length <= USER_INFO_CONST.MAX_DISPLAYNAME_LENGTH);
   });
 
   //validate firstName
-  fieldValidation(req.body.firstName, 'firstName', true, 'string',
+  fieldValidation(requestBody.firstName, 'firstName', true, 'string',
     badFirstName, function(field){
       return (field.length>=USER_INFO_CONST.MIN_NAME_LENGTH
         && field.length <= USER_INFO_CONST.MAX_NAME_LENGTH);
   });
 
   //validate lastName
-  fieldValidation(req.body.lastName, 'lastName', true, 'string',
+  fieldValidation(requestBody.lastName, 'lastName', true, 'string',
     badLastName, function(field){
       return (field.length>=USER_INFO_CONST.MIN_NAME_LENGTH
         && field.length <= USER_INFO_CONST.MAX_NAME_LENGTH);
   });
 
   //validate age
-  fieldValidation(req.body.age, 'age', true, 'number',
+  fieldValidation(requestBody.age, 'age', true, 'number',
     badAge, function(field){
       return (field >= USER_INFO_CONST.MIN_AGE
         || field <= USER_INFO_CONST.MAX_AGE);
   });
 
   //validate gender
-  fieldValidation(req.body.gender, 'gender', true, 'number',
+  fieldValidation(requestBody.gender, 'gender', true, 'number',
     badGender, function(field){
       return (field === 1 || field === 0);
   });
 
   //validate email
-  fieldValidation(req.body.email, 'email', true, 'string',
+  fieldValidation(requestBody.email, 'email', true, 'string',
     badEmail, function(field){
       return validator.isEmail(field);
   });
 
   //validate profilePic
-  fieldValidation(req.body.profilePic, 'profilePic', false, 'string',
+  fieldValidation(requestBody.profilePic, 'profilePic', false, 'string',
     badProfilePic, function(field){
       return validator.isURL(field);
   });

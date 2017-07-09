@@ -11,9 +11,9 @@ const {eventInfoValidation} = require('./eventInfoValidation')
 // param middleware
 //---------copying from user routes, should put it in a different file later---------
 // whenever userId is in param
-// find the user from db based on userId and assign it to req.user
+// find the user from db based on userId and assign it to res.user
 router.param('userId', function(req, res, next, id){
-  // find the user from db based on userId and assign it to req.user
+  // find the user from db based on userId and assign it to res.user
   if(!validator.isMongoId(id)){
     var err = new Error(id+' is not a valid Mongo object id');
     err.status = 404;
@@ -30,13 +30,14 @@ router.param('userId', function(req, res, next, id){
       err.target = 'userId';
       return next(err);
     } else {
-      req.user = searchResult;
+      res.user = searchResult;
       return next();
     }
   });
 });
 
 router.param('eventId', function(req, res, next, id){
+  // find the event from db based on userId and assign it to res.event
   if(!validator.isMongoId(id)){
     var err = new Error(id+' is not a valid Mongo object id');
     err.status = 404;
@@ -53,7 +54,7 @@ router.param('eventId', function(req, res, next, id){
       err.target = 'eventId';
       return next(err);
     } else {
-      req.event = searchResult;
+      res.event = searchResult;
       return next();
     }
   });
@@ -80,7 +81,7 @@ router.get('/:eventId',
   //TODO: insert user authentication middleware:
   // permission: any user
   (req,res) =>{
-  res.status(200).json(req.event);
+  res.status(200).json(res.event);
 });
 
 // create an event
@@ -118,7 +119,7 @@ router.put('/:eventId',
         if(req.body[i]!==null)
           updateFields[i] = req.body[i];
       };
-      Event.update({'_id':req.event._id},
+      Event.update({'_id':res.event._id},
         {$set:updateFields},
         {$unset: unsetFields},
         function(err, modifiedEvent){
@@ -135,7 +136,7 @@ router.delete('/:eventId',
   //TODO: insert user authentication middleware:
   // permission: event admin
   (req, res, next) => {
-    req.event.remove(function(err){
+    res.event.remove(function(err){
       if(err){ return next(err);}
       res.status(204).send();
     });
@@ -146,7 +147,7 @@ router.delete('/:eventId',
 // Get the whole list of attendees of an event
 // API: GET /events/:eventId/attendee
 router.get('/:eventId/attendee', (req,res) =>{
-  res.status(200).json(req.event.attendees);
+  res.status(200).json(res.event.attendees);
 });
 
 //-------------------Event Attendee -------------------
@@ -155,27 +156,27 @@ router.get('/:eventId/attendee', (req,res) =>{
 // API: POST /events/:eventId/attendee/:userId
 router.post('/:eventId/attendee/:userId', (req,res) =>{
   //check if user already in attendees list
-  if(req.event.attendees.id(req.params.userId)){
+  if(res.event.attendees.id(req.params.userId)){
     let err = new Error('User already in attendees list');
     err.status = 409;
     err.name = 'BadRequest';
     err.target = 'attendee';
     return next(err);
   }
-  req.event.attendees.push(req.user);
-  req.event.save(function(err, event){
+  res.event.attendees.push(res.user);
+  res.event.save(function(err, event){
     if(err) return next(err);
-    res.status(201).json(req.event);
+    res.status(201).json(res.event);
   });
 });
 
 // Remove user :userId from the attendee list
 // API: DELETE /events/:eventId/attendee/:userId
 router.delete('/:eventId/attendee/:userId', (req,res) =>{
-  req.event.attendees.pull(req.params.userId);
-  req.event.save(function(err, event){
+  res.event.attendees.pull(req.params.userId);
+  res.event.save(function(err, event){
     if(err) return next(err);
-    res.status(201).json(req.event);
+    res.status(201).json(res.event);
   });
 });
 
@@ -185,7 +186,7 @@ router.delete('/:eventId/attendee/:userId', (req,res) =>{
 // Get the whole list of admins of an event
 // API: GET /events/:eventId/admin
 router.get('/:eventId/admin', (req,res) =>{
-  res.status(200).json(req.event.admins);
+  res.status(200).json(res.event.admins);
 });
 
 //------------------Event Admin---------------------
@@ -195,27 +196,27 @@ router.get('/:eventId/admin', (req,res) =>{
 // API: POST /events/:eventId/admin/:userId
 router.post('/:eventId/admin/:userId', (req,res) =>{
   //check if user already in attendees list
-  if(req.event.admins.id(req.params.userId)){
+  if(res.event.admins.id(req.params.userId)){
     let err = new Error('User already in admin list');
     err.status = 409;
     err.name = 'BadRequest';
     err.target = 'attendee';
     return next(err);
   }
-  req.event.admins.push(req.user);
-  req.event.save(function(err, event){
+  res.event.admins.push(res.user);
+  res.event.save(function(err, event){
     if(err) return next(err);
-    res.status(201).json(req.event);
+    res.status(201).json(res.event);
   });
 });
 
 // Remove user :userId from the admin list
 // API: DELETE /events/:eventId/admin/:userId
 router.delete('/:eventId/admin/:userId', (req,res) =>{
-  req.event.admins.pull(req.params.userId);
-  req.event.save(function(err, event){
+  res.event.admins.pull(req.params.userId);
+  res.event.save(function(err, event){
     if(err) return next(err);
-    res.status(201).json(req.event);
+    res.status(201).json(res.event);
   });
 });
 
