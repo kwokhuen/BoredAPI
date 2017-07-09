@@ -173,23 +173,24 @@ router.put('/:userId', authenticate, (req,res, next) => {
   }
   let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
 
-  userInfoValidation(req, next, true, ()=>{
+  userInfoValidation(userData, next, true, ()=>{
     //if info valid, modify the user
     // unsetFields: fields to unset
 
-    // const unsetFields = {};
-    // for(let i in req.body){
-    //   if(req.body[i]===null)
-    //     unsetFields[i] = null;
-    // };
-    // // updateFields: fields to update
-    // const updateFields = {};
-    // for(let i in req.body){
-    //   if(req.body[i]!==null)
-    //     updateFields[i] = req.body[i];
-    // };
+    const unsetFields = {};
+    for(let i in req.body){
+      if(req.body[i]===null)
+        unsetFields[i] = null;
+    };
+    // updateFields: fields to update
+    const updateFields = {};
+    for(let i in req.body){
+      if(req.body[i]!==null)
+        updateFields[i] = req.body[i];
+    };
 
-    User.update({'_id':res.user._id},
+    //User.findByIdAndUpdate(req.user._id,
+    User.findByIdAndUpdate(req.user._id,
       {$set:updateFields},
       {$unset: unsetFields},
       function(err, modifiedUser){
