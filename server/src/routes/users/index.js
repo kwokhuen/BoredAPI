@@ -6,13 +6,15 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const {User} = require('db/models/User');
 const {userInfoValidation} = require('./userInfoValidation');
-const authenticate = require('./middlewares/authenticate');
+const authenticate = require('../middlewares/authenticate');
 const {ObjectId} = require('mongodb');
 const _ = require('lodash');
 
 // param middleware
+// whenever userId is in param
+// find the user from db based on userId and assign it to res.userId_user
 router.param('userId', function(req, res, next, id){
-  // find the user from db based on userId and assign it to res.user
+  // find the user from db based on userId and assign it to res.userId_user
   if(!validator.isMongoId(id)){
     var err = new Error(id+' is not a valid Mongo object id');
     err.status = 404;
@@ -29,7 +31,7 @@ router.param('userId', function(req, res, next, id){
       err.target = 'userId';
       return next(err);
     } else {
-      res.user = searchResult;
+      res.userId_user = searchResult;
       return next();
     }
   });
@@ -119,6 +121,7 @@ router.post('/dev', (req,res,next) =>{
 
 // create a new user profile
 // API POST localhost:3000/users
+// permission: all users
 router.post('/', (req, res, next) => {
   let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
 
@@ -137,6 +140,7 @@ router.post('/', (req, res, next) => {
 
 // get a user profile
 // API GET localhost:3000/users/:userId
+// permission: all logged-in users
 router.get('/:userId', authenticate, (req,res,next) =>{
   //allowed user: self
   if (req.user._id.toString() !== req.params.userId) {
@@ -146,11 +150,12 @@ router.get('/:userId', authenticate, (req,res,next) =>{
     err.target = 'userId';
     return next(err);
   }
-  res.status(200).json(res.user);
+  res.status(200).json(res.userId_user);
 });
 
 // update user profile
 // API PUT localhost:3000/users/:userId
+// permission: userId_user
 router.put('/:userId', authenticate, (req,res, next) => {
   //allowed user: self
   if (req.user._id.toString() !== req.params.userId) {
@@ -182,6 +187,7 @@ router.put('/:userId', authenticate, (req,res, next) => {
 
 // login route
 // API POST localhost:3000/users/login
+// permission: all users
 router.post('/login', (req,res,next) => {
   let userData = _.pick(req.body, ['username', 'password']);
   User.findByCredential(userData.username, userData.password).then(user => {
@@ -193,6 +199,7 @@ router.post('/login', (req,res,next) => {
 
 // logout route
 // API DELETE localhost:3000/users/logout
+// permission: all logged-in users
 router.delete('/logout', authenticate, (req,res,next) => {
   let user = req.user;
   let token = req.token;
@@ -205,7 +212,7 @@ router.delete('/logout', authenticate, (req,res,next) => {
 //   //TODO: insert user authentication middleware:
 //   (req, res, next) => {
 //     //TODO: delete all data associated with that user: events, etc
-//     res.user.remove(function(err){
+//     res.userId_user.remove(function(err){
 //       if(err) return next(err);
 //       res.status(202).send();
 //     });
