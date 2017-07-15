@@ -9,7 +9,13 @@ const authenticate = (req,res,next) => {
     req.token = token;
     next();
   }).catch(e => {
-    res.status(401).send(e);
+    res.status(401).json({
+      "error": {
+          "code": "BadToken",
+          "target": "auth_token",
+          "message": "Authurization token expired"
+      }
+    });
   });
 }
 

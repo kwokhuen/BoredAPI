@@ -138,7 +138,11 @@ UserSchema.methods.generateAuthToken = function() {
 UserSchema.methods.toJSON = function() {
   let user = this;
   let userObject = user.toObject();
-  return _.pick(userObject, ['_id', 'username', 'displayName'])
+  return _.pick(userObject, ['_id', 'username', 'displayName', 'tokens'])
+}
+
+UserSchema.methods.equals = function(user) {
+  return this._id.toString() === user._id.toString();
 }
 
 UserSchema.methods.removeToken = function(token) {
