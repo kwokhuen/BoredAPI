@@ -73,7 +73,10 @@ const UserSchema = new Schema({
       type: String,
       required: true
     }
-  }]
+  }],
+  friends: [{type:Schema.ObjectId, ref:"User"}],
+  friend_requests: [{type:Schema.ObjectId, ref:"User"}],
+  blocked_users: [{type:Schema.ObjectId, ref:"User"}]
 });
 
 UserSchema.pre('save', function(next) {
@@ -135,19 +138,36 @@ UserSchema.methods.generateAuthToken = function() {
 }
 
 // override mongoose to only send back _id, username and displayName
-UserSchema.methods.toJSON = function() {
-  let user = this;
-  let userObject = user.toObject();
-  return _.pick(userObject, ['_id', 'username', 'displayName', 'tokens'])
-}
+// UserSchema.methods.toJSON = function() {
+//   let user = this;
+//   let userObject = user.toObject();
+//   return _.pick(userObject, ['_id', 'username', 'displayName', 'tokens'])
+// }
 
 UserSchema.methods.equals = function(user) {
   return this._id.toString() === user._id.toString();
 }
 
+UserSchema.methods.isFriendWith = function(user) {
+  return this.friends.indexOf(user._id) !== -1;
+}
+
+UserSchema.methods.hasSentFriendRequestTo = function(user) {
+  return user.friend_requests.indexOf(this._id) !== -1;
+}
+
+UserSchema.methods.hasBlocked = function(user) {
+  return this.blocked_users.indexOf(user._id) !== -1;
+}
+
+
 UserSchema.methods.removeToken = function(token) {
   let user = this;
   return user.update({$pull: {tokens: {token}}});
 }
+
+
+
+
 
 module.exports = {UserSchema};

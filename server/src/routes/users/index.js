@@ -10,6 +10,10 @@ const authenticate = require('../middlewares/authenticate');
 const {ObjectId} = require('mongodb');
 const _ = require('lodash');
 
+const {
+  selfPermitted,
+  checkPermission } = require('../middlewares/permission');
+
 // param middleware
 // whenever userId is in param
 // find the user from db based on userId and assign it to res.userId_user
@@ -141,47 +145,35 @@ router.post('/', (req, res, next) => {
 // get a user profile
 // API GET localhost:3000/users/:userId
 // permission: all logged-in users
-router.get('/:userId', authenticate, (req,res,next) =>{
-  //allowed user: self
-  if (req.user._id.toString() !== req.params.userId) {
-    var err = new Error(req.params.userId+' does not match currently logged in user');
-    err.status = 404;
-    err.name = 'Id Mismatched';
-    err.target = 'userId';
-    return next(err);
+router.get('/:userId', authenticate, selfPermitted, checkPermission,
+ (req,res,next) =>{
+    res.status(200).json(res.userId_user);
   }
-  res.status(200).json(res.userId_user);
-});
+);
 
 // update user profile
 // API PUT localhost:3000/users/:userId
 // permission: userId_user
-router.put('/:userId', authenticate, (req,res, next) => {
-  //allowed user: self
-  if (req.user._id.toString() !== req.params.userId) {
-    let err = new Error(req.params.userId+' does not match currently logged in user');
-    err.status = 404;
-    err.name = 'Id Mismatched';
-    err.target = 'userId';
-    return next(err);
-  }
-  let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
-  //check if request info validity
-  userInfoValidation(userData, next, true, ()=>{
-    for(let i in userData){
-      //update user info
-      if(userData[i]!==null)
-        req.user.set(i,userData[i]);
-      else { //unset fields if they are null
-        req.user.set(i,undefined);
-      }
-    };
-    req.user.save(function(err){
-      if(err) return next(err);
-      res.status(202).send();
+router.put('/:userId', authenticate, selfPermitted, checkPermission,
+  (req,res, next) => {
+    let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
+    //check if request info validity
+    userInfoValidation(userData, next, true, ()=>{
+      for(let i in userData){
+        //update user info
+        if(userData[i]!==null)
+          req.user.set(i,userData[i]);
+        else { //unset fields if they are null
+          req.user.set(i,undefined);
+        }
+      };
+      req.user.save(function(err){
+        if(err) return next(err);
+        res.status(202).send();
+      });
     });
-  });
-});
+  }
+);
 
 // --------------------User login/logout-----------------------
 
@@ -195,7 +187,7 @@ router.post('/login', (req,res,next) => {
       res.header('x-auth', token).send(user);
     })
   }).catch(e => res.status(400).send())
-})
+});
 
 // logout route
 // API DELETE localhost:3000/users/logout
@@ -204,7 +196,147 @@ router.delete('/logout', authenticate, (req,res,next) => {
   let user = req.user;
   let token = req.token;
   user.removeToken(token).then(() => res.status(200).send(), () => res.status(400).send());
-})
+});
+
+//---------------friends routes----------------------
+
+// Send friend request
+// API POST localhost:3000/users/:userId/friendRequest
+// permission: all logged-in users
+router.post('/:userId/friendRequest', authenticate, (req, res, next) => {
+  //check if user is not sending to self
+  if(res.userId_user.equals(req.user)){
+    let err = new Error('Cannot send friend request to self.');
+    err.status = 409;
+    err.name = 'BadRequest';
+    err.target = 'friendRequest';
+    return next(err);
+  }
+  //check if friend request has not been sent
+  if(res.userId_user.isFriendWith(req.user)){
+    let err = new Error('Cannot send friend request to a friend.');
+    err.status = 409;
+    err.name = 'BadRequest';
+    err.target = 'friendRequest';
+    return next(err);
+  }
+  //check if friend request has not been sent already
+  if(req.user.hasSentFriendRequestTo(res.userId_user)){
+    let err = new Error('Friend request was already sent.');
+    err.status = 409;
+    err.name = 'BadRequest';
+    err.target = 'friendRequest';
+    return next(err);
+  }
+  //check if res.userId_user did not send friend request
+  if(res.userId_user.hasSentFriendRequestTo(req.user)){
+    let err = new Error('User ' + req.params.userId +' already sent you a friend request. Accept it or ignore it.');
+    err.status = 409;
+    err.name = 'BadRequest';
+    err.target = 'friendRequest';
+    return next(err);
+  }
+  // register req.user to userId_user's friend_requests list
+  res.userId_user.friend_requests.push(req.user);
+  res.userId_user.save(function(err){
+    if(err) return next(err);
+    res.status(202).send();
+  });
+});
+
+// Cancel friend request
+// API DELETE localhost:3000/users/:userId/friendRequest
+// permission: all logged-in users
+router.delete('/:userId/friendRequest', authenticate, (req, res, next) => {
+  //check if friend request is sent
+  if(!req.user.hasSentFriendRequestTo(res.userId_user)){
+    let err = new Error('No friend request was sent.');
+    err.status = 409;
+    err.name = 'NotFound';
+    err.target = 'friendRequest';
+    return next(err);
+  }
+  // remove req.user from userId_user's friend_requests list
+  res.userId_user.friend_requests.pull(req.user._id);
+  res.userId_user.save(function(err){
+    if(err) return next(err);
+    res.status(202).send();
+  });
+});
+
+// Ignore friend request
+// API POST localhost:3000/users/:userId/ignoreRequest
+// permission: all logged-in users
+router.post('/:userId/ignoreRequest', authenticate, (req, res, next) => {
+  //check if friend request is received
+  if(!res.userId_user.hasSentFriendRequestTo(req.user)){
+    let err = new Error('No friend request was received.');
+    err.status = 409;
+    err.name = 'NotFound';
+    err.target = 'friendRequest';
+    return next(err);
+  }
+  // remove req.user from userId_user's friend_requests list
+  req.user.friend_requests.pull(res.userId_user._id);
+  req.user.save(function(err){
+    if(err) return next(err);
+    res.status(202).send();
+  });
+});
+
+// Confirm friend request
+// API POST localhost:3000/users/:userId/friends
+// permission: all logged-in users
+router.post('/:userId/friends', authenticate, (req, res, next) => {
+  //check if friend request is received
+  if(!res.userId_user.hasSentFriendRequestTo(req.user)){
+    let err = new Error('No friend request was received.');
+    err.status = 409;
+    err.name = 'NotFound';
+    err.target = 'friendRequest';
+    return next(err);
+  }
+  req.user.friend_requests.pull(res.userId_user._id);
+  req.user.friends.push(res.userId_user);
+  req.user.save(function(err){
+    if(err) return next(err);
+    res.userId_user.friends.push(req.user);
+    res.userId_user.save(function(err){
+      if(err) return next(err);
+      res.status(202).send();
+    });
+  });
+});
+
+// Remove friend
+// API DELETE localhost:3000/users/:userId/friends
+// permission: all logged-in users
+// remove req.user from userId_user's friend_requests list
+router.delete('/:userId/friends', authenticate, (req, res, next) => {
+  //check if userId_user is friend
+  if(!res.userId_user.isFriendWith(req.user)){
+    let err = new Error('User ' + req.params.userId + ' is not a friend.');
+    err.status = 409;
+    err.name = 'NotFound';
+    err.target = 'friend';
+    return next(err);
+  }
+  req.user.friends.pull(res.userId_user._id);
+  req.user.save(function(err){
+    if(err) return next(err);
+    res.userId_user.friends.pull(req.user._id);
+    res.userId_user.save(function(err){
+      if(err) return next(err);
+      res.status(202).send();
+    });
+  });
+});
+
+
+//-----------------block users routes----------------------
+
+
+
 
 // // delete a user profile
 // // API DELETE localhost:3000/users/:userId
