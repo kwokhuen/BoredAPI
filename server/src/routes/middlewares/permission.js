@@ -36,7 +36,7 @@ const checkPermission = (req,res,next) => {
   //check if req.permitted is flagged to true
   if(!req.permitted){
     let err = new Error('User is not authurized for this action.');
-    err.status = 404;
+    err.status = 401;
     err.name = 'Permission Denied';
     err.target = 'user';
     return next(err);
@@ -52,8 +52,8 @@ const checkPermission = (req,res,next) => {
 //check if req.user is not blocked by res.userId_user
 const checkNotBlockedByUser = (req,res,next) => {
   if(res.userId_user.hasBlocked(req.user)){
-    let err = new Error('User ' + res.userId_user._id.toString() + ' has blocked you.');
-    err.status = 404;
+    let err = new Error('User is not authurized for this action.');
+    err.status = 401;
     err.name = 'Permission Denied';
     err.target = 'user';
     return next(err);
@@ -66,7 +66,7 @@ const checkSelf = (req,res,next) => {
   //check if user is userId_user
   if(!req.user.equals(res.userId_user)){
     let err = new Error('User is not authurized for this action.');
-    err.status = 404;
+    err.status = 401;
     err.name = 'Permission Denied';
     err.target = 'user';
     return next(err);
@@ -79,14 +79,13 @@ const checkNotSelf = (req,res,next) => {
   //check if user is userId_user
   if(req.user.equals(res.userId_user)){
     let err = new Error('User is not authurized for this action.');
-    err.status = 404;
+    err.status = 401;
     err.name = 'Permission Denied';
     err.target = 'user';
     return next(err);
   }
   next();
 }
-
 
 module.exports = {
   grantSelf,

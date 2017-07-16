@@ -1,15 +1,13 @@
 'use strict';
 
 const express = require('express');
-const validator = require('validator');
-// const {url} = require('config/development');
+const router = express.Router();
+const _ = require('lodash');
+
 const {Event} = require('db/models/Event')
 const {User} = require('db/models/User')
-const router = express.Router();
 const {eventInfoValidation} = require('./eventInfoValidation')
 const authenticate = require('../middlewares/authenticate');
-const {ObjectId} = require('mongodb');
-const _ = require('lodash');
 
 const {
   grantSelf,
@@ -115,7 +113,15 @@ router.delete('/:eventId', authenticate, grantAdmin, checkPermission,
 // API: GET /events/:eventId/attendee
 // permission: all logged-in users
 router.get('/:eventId/attendees', authenticate, (req,res) =>{
-  res.status(200).json(res.eventId_event.attendees);
+  Event.findOne({ _id: req.params.eventId}).populate('attendees').exec(function(err,event){
+    if(err) return next(err);
+    let attendee_list = event.attendees.toObject();
+    let result = [];
+    for (let i in attendee_list){
+      result.push(_.pick(attendee_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
+    }
+    res.status(200).json(result);
+  })
 });
 
 //-------------------Event Attendee -------------------
@@ -183,7 +189,15 @@ router.delete('/:eventId/attendees/:userId', authenticate,
 // API: GET /events/:eventId/admins
 // permission: all logged-in users
 router.get('/:eventId/admins', authenticate, (req,res) =>{
-  res.status(200).json(res.eventId_event.admins);
+  Event.findOne({ _id: req.params.eventId}).populate('admins').exec(function(err,event){
+    if(err) return next(err);
+    let admin_list = event.admins.toObject();
+    let result = [];
+    for (let i in admin_list){
+      result.push(_.pick(admin_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
+    }
+    res.status(200).json(result);
+  })
 });
 
 //------------------Event Admin---------------------
@@ -253,13 +267,19 @@ router.delete('/:eventId/admins/:userId', authenticate,
 //------------------Event Blocked users Collection-------------------
 // /event/:eventId/blockedUsers
 
-// Get the whole list of admins of that event
+// Get the whole list of blocked Users of that event
 // API: GET /events/:eventId/blockedUsers
 // permission: all logged-in users
 router.get('/:eventId/admins', authenticate, grantAdmin, checkPermission,
-  (req,res) =>{
-    res.status(200).json(res.eventId_event.blocked_users);
-  }
+  Event.findOne({ _id: req.params.eventId}).populate('blocked_users').exec(function(err,event){
+    if(err) return next(err);
+    let blocked_list = event.blocked_users.toObject();
+    let result = [];
+    for (let i in blocked_list){
+      result.push(_.pick(blocked_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
+    }
+    res.status(200).json(result);
+  })
 );
 
 //------------------Event Blocked users---------------------

@@ -2,9 +2,15 @@ FORMAT: 1A
 
 # GALB API
 
+# Authentication
+
+All of the API routes except login, and create user, need authentication.
+To do so, include a ("x-auth",$token) pair in the request header, where $token
+is the unique auth token for each user.
+
 # Group User
 
-## User Collection [/user]
+## User Collection [/users]
 
 ### Create a user [POST]
 
@@ -16,35 +22,48 @@ Create a user profile. The request body should be a JSON-encoded object containi
 + gender (required, number) - 0 for female, 1 for male
 + email (required, string) - email address for the user
 + profilePic (string) - URL for the user's profile picture
++ password (required, string) - raw password for the account
 
 + Response 201 (application/json)
 
   User profile was successfully created
 
-  + Body
-  ```
-  {
-
-  }
-  ```
-
-## User [/user/:userid]
+## User [/users/:userid]
 
 ### View a user [GET]
 
-### Update a user [PUT]
-Update the current user's profile information. The request body should be a JSON object containing key-value pairs of which need to be updated.
-Set the value to `null` to unset the field if the field is not required.
-For example `{profilePic:null}` would unset the profilePic
+Get the json-encoded object of the requested user's info. The response would be different depending on whether the
+calling user is friend/self/blocked/other with the user requested.
 
-+ Response 201 (application/json)
++ Response 200 (application/json)
 
-  User information was successfully updated
+  Profile was created successfully
 
   + Body
 
+  {
+      "_id": "596ae5deddaa262f7586e8db",
+      "username": "jsmith",
+      "displayName": "John Smith",
+      "firstName": "John",
+      "lastName": "Smith",
+      "age": 23,
+      "gender": 1,
+      "email": "jsmith@gmail.com",
+      "blocked_users": [],
+      "friend_requests": [],
+      "friends": []
+  }
 
-### Delete a user [DELETE]
+### Update a user [PUT]
+Update the current user's profile information. The request body should be a JSON object containing key-value pairs of which need to be updated.
+Set the value to `null` to unset the field (only when the field is not required).
+For example `{profilePic:null}` would unset the profilePic
+
++ Response 202 (application/json)
+
+  User information was successfully updated
+
 
 ## User Collection <for development use> [/user/dev]
 

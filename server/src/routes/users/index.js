@@ -1,14 +1,12 @@
 'use strict';
 
 const express = require('express');
-const validator = require('validator');
 const router = express.Router();
-const mongoose = require('mongoose');
+const _ = require('lodash');
+
 const {User} = require('db/models/User');
 const {userInfoValidation} = require('./userInfoValidation');
 const authenticate = require('../middlewares/authenticate');
-const {ObjectId} = require('mongodb');
-const _ = require('lodash');
 
 const {
   grantSelf,
@@ -43,7 +41,7 @@ router.delete('/dev', (req,res) =>{
   if(User.collection.drop()){
     res.status(202).send();
   } else {
-    res.status(500).send("Error");
+    res.status(500).json("Error");
   }
 });
 
@@ -52,52 +50,52 @@ router.delete('/dev', (req,res) =>{
 // API DELETE localhost:3000/users/dev
 router.post('/dev', (req,res,next) =>{
   let user1 = new User({
-    "username": "ErnManner",
-    "displayName": "Ernest Manner",
-    "firstName": "Ernestine",
-    "lastName": "Manner",
-    "age": 20,
-    "gender":1,
-    "email": "ernest96@gmail.com",
-    "profilePic":"https://organicthemes.com/demo/profile/files/2012/12/profile_img.png",
-    "password":"1234567890"
+    "_id": "596ae5deddaa262f7586e8db",
+    "username": "MarAtt",
+    "displayName": "MarAtt",
+    "firstName": "Marlena",
+    "lastName": "Atterberry",
+    "age": 23,
+    "gender": 1,
+    "email": "chiang@gmail.com",
+    "password": "$2a$10$RRIXfLd9fbPO4/SqKHnS7.i7Y0kE8sTpVD8/RZGF5B.bw17XztUuq",
+    "__v": 10,
+    "blocked_users": [],
+    "friend_requests": [],
+    "friends": [],
+    "tokens": [
+        {
+            "access": "auth",
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1OTZhZTVkZWRkYWEyNjJmNzU4NmU4ZGIiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNTAwMTc3ODg3fQ.mnilz-agOiLhBF8g4k24lN9x9AXNoHpB_KyZ8-fUNNo",
+            "_id": "596ae5dfddaa262f7586e8dc"
+        }
+    ]
   });
 
   let user2 = new User({
-    "username": "DamTouch",
-    "displayName": "Damian Touchette",
-    "firstName": "Damian",
-    "lastName": "Touchette",
-    "age": 23,
-    "gender":0,
-    "email": "touche@yahoo.com",
-    "password":"1234567890"
-  });
-
-  let user3 = new User({
+    "_id": "596ae629ddaa262f7586e8dd",
     "username": "AnOli",
     "displayName": "Andreas Olivieri",
     "firstName": "Andreas",
     "lastName": "Olivieri",
-    "age": 19,
-    "gender":1,
-    "email": "andreas@gmail.com",
-    "password":"1234567890"
+    "age": 20,
+    "gender": 1,
+    "email": "andreas@mail.com",
+    "password": "$2a$10$tyH3NIxy0Jfmgpj5FqtzXeDPULYyBB3J3NuyUTRqaKBjJlHvHZKYe",
+    "__v": 8,
+    "blocked_users": [],
+    "friend_requests": [],
+    "friends": [],
+    "tokens": [
+        {
+            "access": "auth",
+            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1OTZhZTYyOWRkYWEyNjJmNzU4NmU4ZGQiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNTAwMTc3OTYxfQ.HuHGYekrhbmXxV2dkm2IooRFhSC20apT4bwr5GF7VyY",
+            "_id": "596ae629ddaa262f7586e8de"
+        }
+    ]
   });
 
-  let user4 = new User({
-    "username": "MarAtt",
-    "displayName": "Marlena Atterberry",
-    "firstName": "Marlena",
-    "lastName": "Atterberry",
-    "age": 26,
-    "gender":0,
-    "email": "marlena@gmail.com",
-    "profilePic":"https://assets.entrepreneur.com/content/16x9/822/20150406145944-dos-donts-taking-perfect-linkedin-profile-picture-selfie-mobile-camera-2.jpeg",
-    "password":"1234567890"
-  });
-
-  let fakeUsers = [user1, user2, user3, user4];
+  let fakeUsers = [user1, user2];
   User.insertMany(fakeUsers).then(()=>{
     res.status(201).json("list of fake users created");
   }).catch(err=>{return next(err);})
@@ -128,9 +126,29 @@ router.post('/', (req, res, next) => {
 // get a user profile
 // API GET localhost:3000/users/:userId
 // permission: all logged-in users
-router.get('/:userId', authenticate, checkSelf,
+router.get('/:userId', authenticate,
  (req,res,next) =>{
-    res.status(200).json(res.userId_user);
+   //self
+   if(req.user.equals(res.userId_user))
+     res.status(200).json(res.userId_user);
+   //friend
+   else if(req.user.isFriendWith(res.userId_user)){
+     let result = _.pick(res.userId_user, ['displayName', 'firstName', 'lastName', 'gender', 'username', 'profilePic']);
+     res.status(200).json(result);
+   } //blocked by userId_user
+   else if(res.userId_user.hasBlocked(req.user)){
+     let result = _.pick(res.userId_user, ['username']);
+     res.status(200).json(result);
+   } //has blocked userId_user
+   else if(req.user.hasBlocked(res.userId_user)){
+     let result = _.pick(res.userId_user, ['username']);
+     res.status(200).json(result);
+   }
+   //everyone else
+   else {
+     let result = _.pick(res.userId_user, ['displayName', 'firstName', 'lastName', 'gender', 'username', 'profilePic']);
+     res.status(200).json(result);
+   }
   }
 );
 
@@ -167,7 +185,7 @@ router.post('/login', (req,res,next) => {
   let userData = _.pick(req.body, ['username', 'password']);
   User.findByCredential(userData.username, userData.password).then(user => {
     return user.generateAuthToken().then(token => {
-      res.header('x-auth', token).send(user);
+      res.status(200).header('x-auth', token).send(user);
     })
   }).catch(e => res.status(400).send())
 });
@@ -188,7 +206,7 @@ router.delete('/logout', authenticate, (req,res,next) => {
 // permission: all logged-in users
 router.post('/:userId/friendRequest', authenticate,
   checkNotSelf, checkNotBlockedByUser, (req, res, next) => {
-  //check if friend request has not been sent
+  //check if userId_user is not friend
   if(res.userId_user.isFriendWith(req.user)){
     let err = new Error('Cannot send friend request to a friend.');
     err.status = 409;
@@ -260,6 +278,21 @@ router.post('/:userId/ignoreRequest', authenticate, (req, res, next) => {
   });
 });
 
+// show friend list of a user
+// API GET localhost:3000/users/:userId/friends
+// permission: everyone except blocked users
+router.get('/:userId/friends', authenticate, checkNotBlockedByUser, (req, res, next) => {
+  User.findOne({ _id: req.params.userId}).populate('friends').exec(function(err,user){
+    if(err) return next(err);
+    let friend_list = user.friends.toObject();
+    let result = [];
+    for (let i in friend_list){
+      result.push(_.pick(friend_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
+    }
+    res.status(200).json(result);
+  })
+});
+
 // Confirm friend request
 // API POST localhost:3000/users/:userId/friends
 // permission: all logged-in users
@@ -309,6 +342,21 @@ router.delete('/:userId/friends', authenticate, (req, res, next) => {
 });
 
 //-----------------block users routes----------------------
+// show blocked users
+// API GET localhost:3000/users/:userId/block
+// permission: self
+router.get('/:userId/block', authenticate, checkSelf, (req, res, next) => {
+  User.findOne({ _id: req.params.userId}).populate('blocked_users').exec(function(err,user){
+    if(err) return next(err);
+    let blocked_list = user.blocked_users.toObject();
+    let result = [];
+    for (let i in blocked_list){
+      result.push(_.pick(blocked_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
+    }
+    res.status(200).json(result);
+  })
+});
+
 // Block a user
 // API POST localhost:3000/users/:userId/block
 // permission: all logged-in users
@@ -367,8 +415,6 @@ router.delete('/:userId/block', authenticate, (req, res, next) => {
     res.status(202).send();
   });
 });
-
-
 
 // // delete a user profile
 // // API DELETE localhost:3000/users/:userId

@@ -137,6 +137,11 @@ UserSchema.methods.generateAuthToken = function() {
   return user.save().then(() => token);
 }
 
+UserSchema.methods.removeToken = function(token) {
+  let user = this;
+  return user.update({$pull: {tokens: {token}}});
+}
+
 // override mongoose to only send back _id, username and displayName
 // UserSchema.methods.toJSON = function() {
 //   let user = this;
@@ -159,15 +164,5 @@ UserSchema.methods.hasSentFriendRequestTo = function(user) {
 UserSchema.methods.hasBlocked = function(user) {
   return this.blocked_users.indexOf(user._id) !== -1;
 }
-
-
-UserSchema.methods.removeToken = function(token) {
-  let user = this;
-  return user.update({$pull: {tokens: {token}}});
-}
-
-
-
-
 
 module.exports = {UserSchema};
