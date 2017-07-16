@@ -11,8 +11,9 @@ const {ObjectId} = require('mongodb');
 const _ = require('lodash');
 
 const {
-  selfPermitted,
-  checkPermission } = require('../middlewares/permission');
+  grantSelf,
+  checkPermission,
+  notBlockedOnly } = require('../middlewares/permission');
 
 // param middleware
 // whenever userId is in param
@@ -145,7 +146,7 @@ router.post('/', (req, res, next) => {
 // get a user profile
 // API GET localhost:3000/users/:userId
 // permission: all logged-in users
-router.get('/:userId', authenticate, selfPermitted, checkPermission,
+router.get('/:userId', authenticate, grantSelf, checkPermission,
  (req,res,next) =>{
     res.status(200).json(res.userId_user);
   }
@@ -154,7 +155,7 @@ router.get('/:userId', authenticate, selfPermitted, checkPermission,
 // update user profile
 // API PUT localhost:3000/users/:userId
 // permission: userId_user
-router.put('/:userId', authenticate, selfPermitted, checkPermission,
+router.put('/:userId', authenticate, grantSelf, checkPermission,
   (req,res, next) => {
     let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
     //check if request info validity
@@ -203,7 +204,7 @@ router.delete('/logout', authenticate, (req,res,next) => {
 // Send friend request
 // API POST localhost:3000/users/:userId/friendRequest
 // permission: all logged-in users
-router.post('/:userId/friendRequest', authenticate, (req, res, next) => {
+router.post('/:userId/friendRequest', authenticate, notBlockedOnly, (req, res, next) => {
   //check if user is not sending to self
   if(res.userId_user.equals(req.user)){
     let err = new Error('Cannot send friend request to self.');
@@ -308,7 +309,7 @@ router.post('/:userId/friends', authenticate, (req, res, next) => {
   });
 });
 
-// Remove friend
+// Unfriend a friend
 // API DELETE localhost:3000/users/:userId/friends
 // permission: all logged-in users
 // remove req.user from userId_user's friend_requests list
@@ -322,9 +323,9 @@ router.delete('/:userId/friends', authenticate, (req, res, next) => {
     return next(err);
   }
   req.user.friends.pull(res.userId_user._id);
+  res.userId_user.friends.pull(req.user._id);
   req.user.save(function(err){
     if(err) return next(err);
-    res.userId_user.friends.pull(req.user._id);
     res.userId_user.save(function(err){
       if(err) return next(err);
       res.status(202).send();
@@ -332,9 +333,64 @@ router.delete('/:userId/friends', authenticate, (req, res, next) => {
   });
 });
 
-
 //-----------------block users routes----------------------
+// Block a user
+// API POST localhost:3000/users/:userId/block
+// permission: all logged-in users
+router.post('/:userId/block', authenticate, notBlockedOnly, (req, res, next) => {
+  //check if userId_user has not been blocked
+  if(req.user.hasBlocked(res.userId_user)){
+    let err = new Error('You have blocked the user already.');
+    err.status = 409;
+    err.name = 'BadRequest';
+    err.target = 'block';
+    return next(err);
+  }
+  //remove userId_user from friend list if friended
+  if(req.user.isFriendWith(res.userId_user)){
+    req.user.friends.pull(res.userId_user._id);
+    res.userId_user.friends.pull(req.user._id);
+  }
+  //remove friend request if received
+  if(res.userId_user.hasSentFriendRequestTo(req.user)){
+    req.user.friend_requests.pull(res.userId_user._id);
+  }
+  //remove friend request if sent
+  if(req.user.hasSentFriendRequestTo(res.userId_user)){
+    res.userId_user.friend_requests.pull(req.user._id);
+  }
+  //block userId_user
+  req.user.blocked_users.push(res.userId_user);
+  //save change to database
+  req.user.save(function(err){
+    if(err) return next(err);
+    res.userId_user.save(function(err){
+      if(err) return next(err);
+      res.status(202).send();
+    });
+  });
+});
 
+// Unblock a user
+// API POST localhost:3000/users/:userId/block
+// permission: all logged-in users
+router.delete('/:userId/block', authenticate, (req, res, next) => {
+  //check if userId_user has not been blocked
+  if(!req.user.hasBlocked(res.userId_user)){
+    let err = new Error('You did not block User ' + req.params.userId + ' .');
+    err.status = 409;
+    err.name = 'BadRequest';
+    err.target = 'block';
+    return next(err);
+  }
+  //remove userId_user from blocked list
+  req.user.blocked_users.pull(res.userId_user._id);
+  //save change to database
+  req.user.save(function(err){
+    if(err) return next(err);
+    res.status(202).send();
+  });
+});
 
 
 

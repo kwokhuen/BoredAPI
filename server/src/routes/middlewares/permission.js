@@ -1,12 +1,14 @@
 
 // --------------------permission middlewares------------------------
+
+// --------------------sufficient authurization----------------------
 // those permissions below are sufficient authurization, not necessary
 // that means users with either one of the permits below are authurized
 // to do the action requested.
-// necessary authurization would be hard coded in the route
+// NOTE need to call checkPermission middleware at the end.
 
 //grant permission if user is userId_user
-const selfPermitted = (req,res,next) => {
+const grantSelf = (req,res,next) => {
   //check if user is userId_user
   if(req.user.equals(res.userId_user))
     req.permitted = true;
@@ -14,7 +16,7 @@ const selfPermitted = (req,res,next) => {
 }
 
 //grant permission if user is not userId_user
-const notSelfPermitted = (req,res,next) => {
+const grantNotSelf = (req,res,next) => {
   //check if user is userId_user
   if(!req.user.equals(res.userId_user))
     req.permitted = true;
@@ -22,7 +24,7 @@ const notSelfPermitted = (req,res,next) => {
 }
 
 //grant permission if user is eventId_event admin
-const adminPermitted = (req,res,next) => {
+const grantAdmin = (req,res,next) => {
   //check if user is admin
   if(res.eventId_event.isAdmin(req.user))
     req.permitted = true;
@@ -30,7 +32,7 @@ const adminPermitted = (req,res,next) => {
 }
 
 //grant permission if user is eventId_event attendee
-const attendeePermitted = (req,res,next) => {
+const grantAttendee = (req,res,next) => {
   //check if user is admin
   if(res.eventId_event.isAttendee(req.user))
     req.permitted = true;
@@ -50,9 +52,28 @@ const checkPermission = (req,res,next) => {
   next();
 }
 
+//---------------------necessary conditions----------------------
+// those permissions below are necessary authurization, not sufficient
+// that means users have to pass through all of them
+// in order to be authurized for the action requested.
+
+//check if req.user is not blocked by res.userId_user
+const notBlockedOnly = (req,res,next) => {
+  //check if req.permitted is flagged to true
+  if(res.userId_user.hasBlocked(req.user)){
+    let err = new Error('User ' + res.userId_user._id.toString() + ' has blocked you.');
+    err.status = 404;
+    err.name = 'Permission Denied';
+    err.target = 'user';
+    return next(err);
+  }
+  next();
+}
+
 module.exports = {
-  selfPermitted,
-  notSelfPermitted,
-  adminPermitted,
-  attendeePermitted,
-  checkPermission };
+  grantSelf,
+  grantNotSelf,
+  grantAdmin,
+  grantAttendee,
+  checkPermission,
+  notBlockedOnly };
