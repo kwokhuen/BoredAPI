@@ -13,34 +13,16 @@ const _ = require('lodash');
 const {
   grantSelf,
   checkPermission,
-  notBlockedOnly } = require('../middlewares/permission');
+  checkNotBlockedByUser,
+  checkSelf,
+  checkNotSelf} = require('../middlewares/permission');
+
+const { userIdParam } = require('../middlewares/param');
 
 // param middleware
 // whenever userId is in param
 // find the user from db based on userId and assign it to res.userId_user
-router.param('userId', function(req, res, next, id){
-  // find the user from db based on userId and assign it to res.userId_user
-  if(!validator.isMongoId(id)){
-    var err = new Error(id+' is not a valid Mongo object id');
-    err.status = 404;
-    err.name = 'NotFound';
-    err.target = 'userId';
-    return next(err);
-  }
-  User.findById(id, function(err, searchResult){
-    if(err) return next(err);
-    if(!searchResult) {
-      var err = new Error('User with ID '+id+' does not exist');
-      err.status = 404;
-      err.name = 'NotFound';
-      err.target = 'userId';
-      return next(err);
-    } else {
-      res.userId_user = searchResult;
-      return next();
-    }
-  });
-});
+router.param('userId', userIdParam);
 
 // Routes
 
@@ -146,7 +128,7 @@ router.post('/', (req, res, next) => {
 // get a user profile
 // API GET localhost:3000/users/:userId
 // permission: all logged-in users
-router.get('/:userId', authenticate, grantSelf, checkPermission,
+router.get('/:userId', authenticate, checkSelf,
  (req,res,next) =>{
     res.status(200).json(res.userId_user);
   }
@@ -155,7 +137,7 @@ router.get('/:userId', authenticate, grantSelf, checkPermission,
 // update user profile
 // API PUT localhost:3000/users/:userId
 // permission: userId_user
-router.put('/:userId', authenticate, grantSelf, checkPermission,
+router.put('/:userId', authenticate, checkSelf,
   (req,res, next) => {
     let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
     //check if request info validity
@@ -204,15 +186,8 @@ router.delete('/logout', authenticate, (req,res,next) => {
 // Send friend request
 // API POST localhost:3000/users/:userId/friendRequest
 // permission: all logged-in users
-router.post('/:userId/friendRequest', authenticate, notBlockedOnly, (req, res, next) => {
-  //check if user is not sending to self
-  if(res.userId_user.equals(req.user)){
-    let err = new Error('Cannot send friend request to self.');
-    err.status = 409;
-    err.name = 'BadRequest';
-    err.target = 'friendRequest';
-    return next(err);
-  }
+router.post('/:userId/friendRequest', authenticate,
+  checkNotSelf, checkNotBlockedByUser, (req, res, next) => {
   //check if friend request has not been sent
   if(res.userId_user.isFriendWith(req.user)){
     let err = new Error('Cannot send friend request to a friend.');
@@ -337,7 +312,8 @@ router.delete('/:userId/friends', authenticate, (req, res, next) => {
 // Block a user
 // API POST localhost:3000/users/:userId/block
 // permission: all logged-in users
-router.post('/:userId/block', authenticate, notBlockedOnly, (req, res, next) => {
+router.post('/:userId/block', authenticate, checkNotSelf, checkNotBlockedByUser,
+  (req, res, next) => {
   //check if userId_user has not been blocked
   if(req.user.hasBlocked(res.userId_user)){
     let err = new Error('You have blocked the user already.');

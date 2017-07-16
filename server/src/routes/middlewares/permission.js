@@ -15,14 +15,6 @@ const grantSelf = (req,res,next) => {
   next();
 }
 
-//grant permission if user is not userId_user
-const grantNotSelf = (req,res,next) => {
-  //check if user is userId_user
-  if(!req.user.equals(res.userId_user))
-    req.permitted = true;
-  next();
-}
-
 //grant permission if user is eventId_event admin
 const grantAdmin = (req,res,next) => {
   //check if user is admin
@@ -58,8 +50,7 @@ const checkPermission = (req,res,next) => {
 // in order to be authurized for the action requested.
 
 //check if req.user is not blocked by res.userId_user
-const notBlockedOnly = (req,res,next) => {
-  //check if req.permitted is flagged to true
+const checkNotBlockedByUser = (req,res,next) => {
   if(res.userId_user.hasBlocked(req.user)){
     let err = new Error('User ' + res.userId_user._id.toString() + ' has blocked you.');
     err.status = 404;
@@ -70,10 +61,38 @@ const notBlockedOnly = (req,res,next) => {
   next();
 }
 
+//check if req.user is res.userId_user
+const checkSelf = (req,res,next) => {
+  //check if user is userId_user
+  if(!req.user.equals(res.userId_user)){
+    let err = new Error('User is not authurized for this action.');
+    err.status = 404;
+    err.name = 'Permission Denied';
+    err.target = 'user';
+    return next(err);
+  }
+  next();
+}
+
+//check if req.user is not res.userId_user
+const checkNotSelf = (req,res,next) => {
+  //check if user is userId_user
+  if(req.user.equals(res.userId_user)){
+    let err = new Error('User is not authurized for this action.');
+    err.status = 404;
+    err.name = 'Permission Denied';
+    err.target = 'user';
+    return next(err);
+  }
+  next();
+}
+
+
 module.exports = {
   grantSelf,
-  grantNotSelf,
   grantAdmin,
   grantAttendee,
   checkPermission,
-  notBlockedOnly };
+  checkNotBlockedByUser,
+  checkSelf,
+  checkNotSelf };

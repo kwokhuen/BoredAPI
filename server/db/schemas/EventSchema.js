@@ -24,8 +24,9 @@ const EventSchema = new Schema({
   //   type: Boolean,
   //   required: true
   // },
-  admins: [UserSchema],
-  attendees: [UserSchema],
+  admins: [{type:Schema.ObjectId, ref:"User"}],
+  attendees: [{type:Schema.ObjectId, ref:"User"}],
+  blocked_users: [{type:Schema.ObjectId, ref:"User"}],
   description: {
     type: String,
     required: true,
@@ -36,18 +37,17 @@ const EventSchema = new Schema({
 
 //return if user belongs to admin group
 EventSchema.methods.isAdmin = function(user) {
-  if(this.admins.id(user._id))
-    return true;
-  else
-    return false;
+  return this.admins.indexOf(user._id) !== -1;
 }
 
-//return if user belongs to admin group
+//return if user belongs to attendee group
 EventSchema.methods.isAttendee = function(user) {
-  if(this.attendees.id(user._id))
-    return true;
-  else
-    return false;
+  return this.attendees.indexOf(user._id) !== -1;
+}
+
+//return if user is blocked from the event
+EventSchema.methods.hasBlocked = function(user) {
+  return this.blocked_users.indexOf(user._id) !== -1;
 }
 
 module.exports = {EventSchema};

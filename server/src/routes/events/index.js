@@ -12,62 +12,17 @@ const {ObjectId} = require('mongodb');
 const _ = require('lodash');
 
 const {
-  selfPermitted,
-  adminPermitted,
-  attendeePermitted,
-  checkPermission } = require('../middlewares/permission');
+  grantSelf,
+  grantAdmin,
+  grantAttendee,
+  checkPermission,
+  checkNotSelf } = require('../middlewares/permission');
+
+const { userIdParam, eventIdParam } = require('../middlewares/param');
 
 // param middleware
-//---------copying from user routes, should put it in a different file later---------
-// whenever userId is in param
-// find the user from db based on userId and assign it to res.userId_user
-router.param('userId', function(req, res, next, id){
-  // find the user from db based on userId and assign it to res.userId_user
-  if(!validator.isMongoId(id)){
-    var err = new Error(id+' is not a valid Mongo object id');
-    err.status = 404;
-    err.name = 'NotFound';
-    err.target = 'userId';
-    return next(err);
-  }
-  User.findById(id, function(err, searchResult){
-    if(err) return next(err);
-    if(!searchResult) {
-      var err = new Error('User with ID '+id+' does not exist');
-      err.status = 404;
-      err.name = 'NotFound';
-      err.target = 'userId';
-      return next(err);
-    } else {
-      res.userId_user = searchResult;
-      return next();
-    }
-  });
-});
-
-router.param('eventId', function(req, res, next, id){
-  // find the event from db based on userId and assign it to res.eventId_event
-  if(!validator.isMongoId(id)){
-    var err = new Error(id+' is not a valid Mongo object id');
-    err.status = 404;
-    err.name = 'NotFound';
-    err.target = 'eventId';
-    return next(err);
-  }
-  Event.findById(id, function(err, searchResult){
-    if(err) return next(err);
-    if(!searchResult) {
-      var err = new Error('Event with ID '+id+' does not exist');
-      err.status = 404;
-      err.name = 'NotFound';
-      err.target = 'eventId';
-      return next(err);
-    } else {
-      res.eventId_event = searchResult;
-      return next();
-    }
-  });
-});
+router.param('userId', userIdParam);
+router.param('eventId', eventIdParam);
 
 // Routes
 
@@ -122,7 +77,7 @@ router.get('/:eventId', authenticate, (req,res) =>{
 // update event info
 // API: PUT localhost:3000/users/:userId/events/:eventId
 // permission: event admins
-router.put('/:eventId', authenticate, adminPermitted, checkPermission,
+router.put('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
     let eventData = _.pick(req.body, ['name','description']);
     eventInfoValidation(eventData, next, true, ()=>{
@@ -145,7 +100,7 @@ router.put('/:eventId', authenticate, adminPermitted, checkPermission,
 // Delete an event - the whole event will be terminated if the an admin decided to remove the event
 // API: DELETE localhost:3000/users/:userId/events/:eventId
 // permission: event admins
-router.delete('/:eventId', authenticate, adminPermitted, checkPermission,
+router.delete('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
     res.eventId_event.remove(function(err){
       if(err){ return next(err);}
@@ -169,7 +124,7 @@ router.get('/:eventId/attendees', authenticate, (req,res) =>{
 // API: POST /events/:eventId/attendees/:userId
 // permission: userId_user
 router.post('/:eventId/attendees/:userId', authenticate,
-  selfPermitted, checkPermission,
+  grantSelf, checkPermission,
   (req,res,next) =>{
     //check if userId_user already in attendees list
     if(res.eventId_event.isAttendee(res.userId_user)){
@@ -191,9 +146,9 @@ router.post('/:eventId/attendees/:userId', authenticate,
 // API: DELETE /events/:eventId/attendees/:userId
 // permission: userId_user, admin
 router.delete('/:eventId/attendees/:userId', authenticate,
-  selfPermitted, adminPermitted, checkPermission,
+  grantSelf, grantAdmin, checkPermission,
   (req,res,next) => {
-    //check if userId_user in attendees list
+    //check if userId_user is in attendees list
     if(!res.eventId_event.isAttendee(res.userId_user)){
       let err = new Error('User ' + req.params.userId +' is not an attendee.');
       err.status = 409;
@@ -211,9 +166,9 @@ router.delete('/:eventId/attendees/:userId', authenticate,
         err.target = 'admin';
         return next(err);
       }
-      res.eventId_event.admins.pull(res.userId_user._id.toString());
+      res.eventId_event.admins.pull(res.userId_user._id);
     }
-    res.eventId_event.attendees.pull(res.userId_user._id.toString());
+    res.eventId_event.attendees.pull(res.userId_user._id);
     res.eventId_event.save(function(err, event){
       if(err) return next(err);
       res.status(202).json(res.eventId_event);
@@ -238,11 +193,11 @@ router.get('/:eventId/admins', authenticate, (req,res) =>{
 // API: POST /events/:eventId/admins/:userId
 // permission: admin
 router.post('/:eventId/admins/:userId', authenticate,
-  adminPermitted, checkPermission,
+  grantAdmin, checkPermission,
   (req,res, next) =>{
     //check if userId_user in attendee list
     if(!res.eventId_event.isAttendee(res.userId_user)){
-      let err = new Error('User ' + req.params.userId + 'is not an attendee of the event');
+      let err = new Error('User ' + req.params.userId + ' is not an attendee of the event');
       err.status = 409;
       err.name = 'BadRequest';
       err.target = 'admin';
@@ -267,7 +222,7 @@ router.post('/:eventId/admins/:userId', authenticate,
 // Remove user :userId from the admin list
 // API: DELETE /events/:eventId/admins/:userId
 router.delete('/:eventId/admins/:userId', authenticate,
-  selfPermitted, adminPermitted, checkPermission,
+  grantSelf, grantAdmin, checkPermission,
   (req,res,next) => {
     //check if userId_user in attendees list
     if(!res.eventId_event.isAdmin(res.userId_user)){
@@ -287,7 +242,75 @@ router.delete('/:eventId/admins/:userId', authenticate,
       return next(err);
     }
 
-    res.eventId_event.admins.pull(res.userId_user._id.toString());
+    res.eventId_event.admins.pull(res.userId_user._id);
+    res.eventId_event.save(function(err, event){
+      if(err) return next(err);
+      res.status(202).json(res.eventId_event);
+    });
+  }
+);
+
+//------------------Event Blocked users Collection-------------------
+// /event/:eventId/blockedUsers
+
+// Get the whole list of admins of that event
+// API: GET /events/:eventId/blockedUsers
+// permission: all logged-in users
+router.get('/:eventId/admins', authenticate, grantAdmin, checkPermission,
+  (req,res) =>{
+    res.status(200).json(res.eventId_event.blocked_users);
+  }
+);
+
+//------------------Event Blocked users---------------------
+// /events/:eventId/blockedUsers/:userId
+
+// Add userId_user to the blocked_users list
+// API: POST /events/:eventId/blockedUsers/:userId
+// permission: admin
+router.post('/:eventId/admins/:userId', authenticate,
+  checkNotSelf, grantAdmin, checkPermission,
+  (req,res, next) =>{
+    //remove userId_user from attendee list if in
+    if(res.eventId_event.isAttendee(res.userId_user)){
+      res.eventId_event.attendees.pull(res.userId_user._id);
+    }
+    //remove userId_user from admin list if in
+    if(res.eventId_event.isAdmin(res.userId_user)){
+      res.eventId_event.admins.pull(res.userId_user._id);
+    }
+    //check if userId_user already in blocked_users list
+    if(res.eventId_event.hasBlocked(res.userId_user)){
+      let err = new Error('User ' + req.params.userId +' already in blocked_users list');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'user';
+      return next(err);
+    }
+    res.eventId_event.blocked_users.push(res.userId_user);
+    res.eventId_event.save(function(err, event){
+      if(err) return next(err);
+      res.status(201).json(res.eventId_event);
+    });
+  }
+);
+
+// Unblock userId_user list from the event
+// API: DELETE /events/:eventId/blockedUsers/:userId
+// permission: admin
+router.delete('/:eventId/admins/:userId', authenticate,
+  grantAdmin, checkPermission,
+  (req,res,next) => {
+    //check if userId_user in blocked_users list
+    if(!res.eventId_event.hasBlocked(res.userId_user)){
+      let err = new Error('User ' + req.params.userId +' is not blocked from the event.');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'user';
+      return next(err);
+    }
+    //unblock userId_user
+    res.eventId_event.blocked_users.pull(res.userId_user._id);
     res.eventId_event.save(function(err, event){
       if(err) return next(err);
       res.status(202).json(res.eventId_event);
