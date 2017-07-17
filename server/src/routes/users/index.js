@@ -12,6 +12,9 @@ const {
   grantSelf,
   checkPermission,
   checkNotBlockedByUser,
+  checkIsFriendWith,
+  checkDidNotBlock,
+  checkDidNotRate,
   checkSelf,
   checkNotSelf} = require('../middlewares/permission');
 
@@ -116,7 +119,7 @@ router.post('/', (req, res, next) => {
     newUser.save().then(() => {
       return newUser.generateAuthToken();
     }).then((token) => {
-      res.header('x-auth', token).status(201).json(newUser);
+      res.header('x-auth', token).status(201).json(newUser.toJSON());
     }).catch(err => res.status(400).send(err));
   });
 });
@@ -128,25 +131,55 @@ router.post('/', (req, res, next) => {
 // permission: all logged-in users
 router.get('/:userId', authenticate,
  (req,res,next) =>{
+   let result = res.userId_user.toJSON();
+
+   if(req.user.hasBlocked(res.userId_user))
+    result.hasBlocked = true;
+   else {
+     result.hasBlocked = false;
+   }
+
+   if(req.user.isFriendWith(res.userId_user))
+    result.isFriend = true;
+   else {
+     result.isFriend = false;
+   }
+
+   if(res.userId_user.wasRatedBy(req.user))
+    result.hasRated = true;
+   else {
+     result.hasRated = false;
+   }
+
+   if(res.userId_user.equals(req.user))
+    result.isSelf = true;
+   else {
+     result.isSelf = false;
+   }
+
    //self
    if(req.user.equals(res.userId_user))
-     res.status(200).json(res.userId_user);
+     res.status(200).json(result);
    //friend
    else if(req.user.isFriendWith(res.userId_user)){
-     let result = _.pick(res.userId_user, ['displayName', 'firstName', 'lastName', 'gender', 'username', 'profilePic']);
+     result = _.pick(result, ['_id', 'username', 'displayName', 'firstName','lastName','age',
+       'gender','profilePic','friends','rating','hasBlocked','isFriend','hasRated','isSelf']);
      res.status(200).json(result);
    } //blocked by userId_user
    else if(res.userId_user.hasBlocked(req.user)){
-     let result = _.pick(res.userId_user, ['username']);
+     result = _.pick(result, ['_id', 'username', 'displayName','rating','hasBlocked',
+       'isFriend','hasRated','isSelf']);
      res.status(200).json(result);
    } //has blocked userId_user
    else if(req.user.hasBlocked(res.userId_user)){
-     let result = _.pick(res.userId_user, ['username']);
+     result = _.pick(result, ['_id', 'username', 'displayName','rating','hasBlocked',
+       'isFriend','hasRated','isSelf']);
      res.status(200).json(result);
    }
    //everyone else
    else {
-     let result = _.pick(res.userId_user, ['displayName', 'firstName', 'lastName', 'gender', 'username', 'profilePic']);
+     result = _.pick(result, ['_id', 'username', 'displayName', 'firstName','lastName','age',
+       'gender','profilePic','friends','rating','hasBlocked','isFriend','hasRated','isSelf']);
      res.status(200).json(result);
    }
   }
@@ -205,7 +238,7 @@ router.delete('/logout', authenticate, (req,res,next) => {
 // API POST localhost:3000/users/:userId/friendRequest
 // permission: all logged-in users
 router.post('/:userId/friendRequest', authenticate,
-  checkNotSelf, checkNotBlockedByUser, (req, res, next) => {
+  checkNotSelf, checkNotBlockedByUser, checkDidNotBlock, (req, res, next) => {
   //check if userId_user is not friend
   if(res.userId_user.isFriendWith(req.user)){
     let err = new Error('Cannot send friend request to a friend.');
@@ -321,25 +354,19 @@ router.post('/:userId/friends', authenticate, (req, res, next) => {
 // API DELETE localhost:3000/users/:userId/friends
 // permission: all logged-in users
 // remove req.user from userId_user's friend_requests list
-router.delete('/:userId/friends', authenticate, (req, res, next) => {
-  //check if userId_user is friend
-  if(!res.userId_user.isFriendWith(req.user)){
-    let err = new Error('User ' + req.params.userId + ' is not a friend.');
-    err.status = 409;
-    err.name = 'NotFound';
-    err.target = 'friend';
-    return next(err);
-  }
-  req.user.friends.pull(res.userId_user._id);
-  res.userId_user.friends.pull(req.user._id);
-  req.user.save(function(err){
-    if(err) return next(err);
-    res.userId_user.save(function(err){
+router.delete('/:userId/friends', authenticate, checkIsFriendWith,
+  (req, res, next) => {
+    req.user.friends.pull(res.userId_user._id);
+    res.userId_user.friends.pull(req.user._id);
+    req.user.save(function(err){
       if(err) return next(err);
-      res.status(202).send();
+      res.userId_user.save(function(err){
+        if(err) return next(err);
+        res.status(202).send();
+      });
     });
-  });
-});
+  }
+);
 
 //-----------------block users routes----------------------
 // show blocked users
@@ -361,15 +388,8 @@ router.get('/:userId/block', authenticate, checkSelf, (req, res, next) => {
 // API POST localhost:3000/users/:userId/block
 // permission: all logged-in users
 router.post('/:userId/block', authenticate, checkNotSelf, checkNotBlockedByUser,
+  checkDidNotBlock,
   (req, res, next) => {
-  //check if userId_user has not been blocked
-  if(req.user.hasBlocked(res.userId_user)){
-    let err = new Error('You have blocked the user already.');
-    err.status = 409;
-    err.name = 'BadRequest';
-    err.target = 'block';
-    return next(err);
-  }
   //remove userId_user from friend list if friended
   if(req.user.isFriendWith(res.userId_user)){
     req.user.friends.pull(res.userId_user._id);
@@ -415,6 +435,53 @@ router.delete('/:userId/block', authenticate, (req, res, next) => {
     res.status(202).send();
   });
 });
+
+//-----------------rate users routes----------------------
+
+// rate a user
+// API POST localhost:3000/users/:userId/rate
+// permission: all logged-in users
+router.post('/:userId/rate', authenticate, checkNotSelf, checkNotBlockedByUser,
+  checkDidNotBlock, checkIsFriendWith, checkDidNotRate,
+  (req, res, next) => {
+    if(req.body.rating===undefined){
+      let err = new Error('No input.');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'rating';
+      return next(err);
+    }
+    let rating = parseInt(req.body.rating);
+
+    if(isNaN(rating)){
+      let err = new Error('Rating should be a number.');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'rating';
+      return next(err);
+    }
+
+    if(rating<0 || rating > 5){
+      let err = new Error('Rating should be an integer between 0 and 5, inclusive .');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'rating';
+      return next(err);
+    }
+
+    //rate userId_user
+    res.userId_user.rated_users.push(req.user);
+    res.userId_user.totalRating += rating;
+
+    //save change to database
+    res.userId_user.save(function(err){
+      if(err) return next(err);
+      res.status(202).send();
+    });
+  }
+);
+
+
 
 // // delete a user profile
 // // API DELETE localhost:3000/users/:userId

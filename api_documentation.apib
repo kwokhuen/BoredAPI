@@ -2,29 +2,49 @@ FORMAT: 1A
 
 # GALB API
 
-# Authentication
+## Authentication
 
-All of the API routes except login, and create user, need authentication.
+All of the API routes except login, and create user, (and developer routes) need authentication.
 To do so, include a ("x-auth",$token) pair in the request header, where $token
-is the unique auth token for each user.
+is the auth token for the session.
+
++ Request
+
+  + Headers
+
+        x-auth: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1OTZhZTVkZWRkYWEyNjJmNzU4NmU4ZGIiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNTAwMTc3ODg3fQ.mnilz-agOiLhBF8g4k24lN9x9AXNoHpB_KyZ8-fUNNo
 
 # Group User
+
+### Terminology
+
+#### calling_user
+
+The user who owns the authentication token, aka, the user who make the API call.
+
+#### userId_user
+
+The user specified by the :userId in the route.
 
 ## User Collection [/users]
 
 ### Create a user [POST]
 
 Create a user profile. The request body should be a JSON-encoded object containing the following keys:
-+ displayName (required, string) - user's display name
-+ firstName (required, string) - user's first name
-+ lastName (required, string) - user's last name
-+ age (required, number) - user's age
-+ gender (required, number) - 0 for female, 1 for male
-+ email (required, string) - email address for the user
-+ profilePic (string) - URL for the user's profile picture
-+ password (required, string) - raw password for the account
 
-+ Response 201 (application/json)
++ Request
+  + Body
+  displayName (required, string) - user's display name
+  username (required, string) - username
+  firstName (required, string) - user's first name
+  lastName (required, string) - user's last name
+  age (required, number) - user's age
+  gender (required, number) - 0 for female, 1 for male
+  email (required, string) - email address for the user
+  profilePic (not required, string) - URL for the user's profile picture
+  password (required, string) - raw password for the account
+
++ Response 201
 
   User profile was successfully created
 
@@ -36,24 +56,26 @@ Get the json-encoded object of the requested user's info. The response would be 
 calling user is friend/self/blocked/other with the user requested.
 
 + Response 200 (application/json)
-
-  Profile was created successfully
-
   + Body
 
-  {
-      "_id": "596ae5deddaa262f7586e8db",
-      "username": "jsmith",
-      "displayName": "John Smith",
-      "firstName": "John",
-      "lastName": "Smith",
-      "age": 23,
-      "gender": 1,
-      "email": "jsmith@gmail.com",
-      "blocked_users": [],
-      "friend_requests": [],
-      "friends": []
-  }
+    {
+      _id: (Number) the ObjectId of the User in MongoDb database
+      username: (String)
+      displayName: (String)
+      firstName: (String)
+      lastName: (String)
+      age: (Number)
+      gender: (Number) 0 for female, 1 for male
+      email: (String)
+      blocked_users: (Array of Number) Array of _id's of users that are blocked by requested user
+      friend_requests: (Array of Number) Array of _id's of users who have sent friend requests to requested user
+      friends: (Array of Number) Array of _id's of friends
+      rating: (Number)
+      hasBlocked: (Boolean)
+      isFriend: (Boolean)
+      hasRated: (Boolean)
+      isSelf: (Boolean)
+    }
 
 ### Update a user [PUT]
 Update the current user's profile information. The request body should be a JSON object containing key-value pairs of which need to be updated.
@@ -64,14 +86,16 @@ For example `{profilePic:null}` would unset the profilePic
 
   User information was successfully updated
 
+## User [/users/:userid]
+
 
 ## User Collection <for development use> [/user/dev]
 
-### View a list of users <development use> [GET]
+### View all users <development use> [GET]
 
 ### Create a list of fake users <development use> [POST]
 
-### Delete whole list of users <development use> [DELETE]
+### Delete all users <development use> [DELETE]
 
 # Group Event
 

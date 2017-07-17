@@ -61,6 +61,42 @@ const checkNotBlockedByUser = (req,res,next) => {
   next();
 }
 
+//check if req.user is friend with res.userId_user
+const checkIsFriendWith = (req,res,next) => {
+  if(!res.userId_user.isFriendWith(req.user)){
+    let err = new Error('User is not authurized for this action.');
+    err.status = 401;
+    err.name = 'Permission Denied';
+    err.target = 'user';
+    return next(err);
+  }
+  next();
+}
+
+//check if req.user did not block res.userId_user
+const checkDidNotBlock = (req,res,next) => {
+  if(req.user.hasBlocked(res.userId_user)){
+    let err = new Error('User is not authurized for this action.');
+    err.status = 401;
+    err.name = 'Permission Denied';
+    err.target = 'user';
+    return next(err);
+  }
+  next();
+}
+
+//check if req.user did not rate res.userId_user
+const checkDidNotRate = (req,res,next) => {
+  if(res.userId_user.wasRatedBy(req.user)){
+    let err = new Error('User is not authurized for this action.');
+    err.status = 401;
+    err.name = 'Permission Denied';
+    err.target = 'user';
+    return next(err);
+  }
+  next();
+}
+
 //check if req.user is res.userId_user
 const checkSelf = (req,res,next) => {
   //check if user is userId_user
@@ -93,5 +129,8 @@ module.exports = {
   grantAttendee,
   checkPermission,
   checkNotBlockedByUser,
+  checkIsFriendWith,
+  checkDidNotBlock,
+  checkDidNotRate,
   checkSelf,
   checkNotSelf };

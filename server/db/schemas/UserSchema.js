@@ -47,7 +47,8 @@ const UserSchema = new Schema({
   },
   age: {
     type: Number,
-    required: true
+    required: true,
+    min:10
   },
   gender: {
     type: Number, // 1: Male, 0: Female
@@ -76,7 +77,13 @@ const UserSchema = new Schema({
   }],
   friends: [{type:Schema.ObjectId, ref:"User"}],
   friend_requests: [{type:Schema.ObjectId, ref:"User"}],
-  blocked_users: [{type:Schema.ObjectId, ref:"User"}]
+  blocked_users: [{type:Schema.ObjectId, ref:"User"}],
+  rated_users: [{type:Schema.ObjectId, ref:"User"}],
+  totalRating: {
+    type: Number,
+    required: false,
+    default: 0
+  }
 });
 
 UserSchema.pre('save', function(next) {
@@ -142,12 +149,15 @@ UserSchema.methods.removeToken = function(token) {
   return user.update({$pull: {tokens: {token}}});
 }
 
-// override mongoose to only send back _id, username and displayName
-// UserSchema.methods.toJSON = function() {
-//   let user = this;
-//   let userObject = user.toObject();
-//   return _.pick(userObject, ['_id', 'username', 'displayName', 'tokens'])
-// }
+//override mongoose to only send back _id, username and displayName
+UserSchema.methods.toJSON = function() {
+  let userObject = this.toObject();
+  userObject.rating = this.rating;
+  return _.pick(userObject,
+    ['_id', 'username', 'displayName', 'firstName','lastName','age',
+    'gender','profilePic','friends','friend_requests','blocked_users',
+    'rating', 'email'])
+}
 
 UserSchema.methods.equals = function(user) {
   return this._id.toString() === user._id.toString();
@@ -164,5 +174,15 @@ UserSchema.methods.hasSentFriendRequestTo = function(user) {
 UserSchema.methods.hasBlocked = function(user) {
   return this.blocked_users.indexOf(user._id) !== -1;
 }
+
+UserSchema.methods.wasRatedBy = function(user) {
+  return this.rated_users.indexOf(user._id) !== -1;
+}
+
+UserSchema.virtual('rating').get(function () {
+  if(this.rated_users.length===0)
+    return -1;
+  return this.totalRating / this.rated_users.length;
+});
 
 module.exports = {UserSchema};
