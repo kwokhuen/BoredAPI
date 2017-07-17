@@ -150,14 +150,14 @@ UserSchema.methods.removeToken = function(token) {
 }
 
 //override mongoose to only send back _id, username and displayName
-UserSchema.methods.toJSON = function() {
-  let userObject = this.toObject();
-  userObject.rating = this.rating;
-  return _.pick(userObject,
-    ['_id', 'username', 'displayName', 'firstName','lastName','age',
-    'gender','profilePic','friends','friend_requests','blocked_users',
-    'rating', 'email'])
-}
+// UserSchema.methods.toJSON = function() {
+//   let userObject = this.toObject();
+//   userObject.rating = this.rating;
+//   return _.pick(userObject,
+//     ['_id', 'username', 'displayName', 'firstName','lastName','age',
+//     'gender','profilePic','friends','friend_requests','blocked_users',
+//     'rating', 'email'])
+// }
 
 UserSchema.methods.equals = function(user) {
   return this._id.toString() === user._id.toString();

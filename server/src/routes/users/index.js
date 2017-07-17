@@ -167,12 +167,12 @@ router.get('/:userId', authenticate,
      res.status(200).json(result);
    } //blocked by userId_user
    else if(res.userId_user.hasBlocked(req.user)){
-     result = _.pick(result, ['_id', 'username', 'displayName','rating','hasBlocked',
+     result = _.pick(result, ['_id', 'username', 'displayName','hasBlocked',
        'isFriend','hasRated','isSelf']);
      res.status(200).json(result);
    } //has blocked userId_user
    else if(req.user.hasBlocked(res.userId_user)){
-     result = _.pick(result, ['_id', 'username', 'displayName','rating','hasBlocked',
+     result = _.pick(result, ['_id', 'username', 'displayName','hasBlocked',
        'isFriend','hasRated','isSelf']);
      res.status(200).json(result);
    }
@@ -313,16 +313,26 @@ router.post('/:userId/ignoreRequest', authenticate, (req, res, next) => {
 
 // show friend list of a user
 // API GET localhost:3000/users/:userId/friends
-// permission: everyone except blocked users
-router.get('/:userId/friends', authenticate, checkNotBlockedByUser, (req, res, next) => {
+// permission: friends of userId_user
+router.get('/:userId/friends', authenticate, checkIsFriendWith, (req, res, next) => {
   User.findOne({ _id: req.params.userId}).populate('friends').exec(function(err,user){
     if(err) return next(err);
+    //friend_list would be an array of ObjectId
     let friend_list = user.friends.toObject();
     let result = [];
-    for (let i in friend_list){
-      result.push(_.pick(friend_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
-    }
-    res.status(200).json(result);
+
+    User.find({'_id': {$in:friend_list}}, function(err, friends){
+      let result = [];
+      for(let index in friends){
+        //check if friends[index] has blocked req.user
+        if(!friends[index].hasBlocked(req.user))
+          result.push(_.pick(friends[index],['_id','username', 'displayName', 'firstName', 'lastName', 'age']));
+        else {
+          result.push(_.pick(friends[index],['_id','username']));
+        }
+      }
+      res.status(200).json(result);
+    });
   })
 });
 
@@ -480,8 +490,6 @@ router.post('/:userId/rate', authenticate, checkNotSelf, checkNotBlockedByUser,
     });
   }
 );
-
-
 
 // // delete a user profile
 // // API DELETE localhost:3000/users/:userId
