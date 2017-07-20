@@ -5,8 +5,8 @@ const {User} = require('db/models/User');
 const {Event} = require('db/models/Event')
 const {USER_INFO_CONST, EVENT_INFO_CONST} = require('config/constants');
 
-var eventInfoValidation = (eventInfo, next, partialUpdate, callback) =>{
-  //partialUpdate allows null values for required fields
+var eventInfoValidation = (eventInfo, next, update, callback) =>{
+  //update allows null values for required fields
   // verify the request body has all fields defined and are valid
 
   var haveError = false;
@@ -21,7 +21,7 @@ var eventInfoValidation = (eventInfo, next, partialUpdate, callback) =>{
     if(field === undefined || field === null){
       // check if value is null/undefined
       if(required)
-        if(field === null || !partialUpdate){
+        if(field === null || !update){
           haveError = true;
           const inputErr = new Error();
           inputErr.code = 'NullValue';

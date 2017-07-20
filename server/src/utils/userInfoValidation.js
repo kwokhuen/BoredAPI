@@ -4,15 +4,11 @@ const validator = require('validator');
 const {User} = require('db/models/User');
 const {USER_INFO_CONST} = require('config/constants');
 
-var userInfoValidation = (userInfo, next, partialUpdate, callback) =>{
+var userInfoValidation = (userInfo, next, update, callback) =>{
   //TODO: If we have a unique field, should check uniqueness here too
   // uniquely identify a user: cell?usercode?email?
 
-  // NOTE for frontend convenience
-  // later may need a route to verify username/email/cell uniqueness
-  // write a helper method
-
-  //partialUpdate allows null values for required fields
+  //update allows null values for required fields
   // verify the request body has all fields defined and are valid
   let haveError = false;
   const argError = new Error('Error(s) in userInfo data');
@@ -26,7 +22,7 @@ var userInfoValidation = (userInfo, next, partialUpdate, callback) =>{
     if(field === undefined || field === null){
       // check if value is null/undefined
       if(required)
-        if(field === null || !partialUpdate){
+        if(field === null || !update){
           haveError = true;
           const inputErr = new Error();
           inputErr.code = 'NullValue';

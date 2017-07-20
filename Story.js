@@ -82,8 +82,6 @@
 // API DELETE localhost:3000/friendRequests/:userId
 // permission: all logged-in users
 
-
-
 //------------------------Event routes----------------------------
 
 // ------------------Event--------------------
@@ -153,6 +151,12 @@
 // permission: admin
 
 
-// NOTE for frontend convenience
-// later may need a route to verify username/email/cell uniqueness
-// write a helper method
+//------------------Utils routes -------------------
+
+// check username existance
+// API GET localhost:3000/utils/usernameExist/:username
+// permission: all users
+
+// check email existance
+// API GET localhost:3000/utils/emailExist/:email
+// permission: all users

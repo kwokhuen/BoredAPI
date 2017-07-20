@@ -15,28 +15,56 @@ This is a repo for the backend API service of Bored.
 ```
 ./
 ├── server/
-|   ├── db
-|   |   ├── models
+|   ├── config/
+|   |   ├── auth.js
+|   |   ├── constants.js                              
+|   |   ├── database.js                          
+|   |   ├── development.js                               
+|   |   
+|   |
+|   ├── db/
+|   |   ├── models/
 |   |   |   ├── Event.js                              * Event Model
 |   |   |   ├── Location.js                           * Location Model
 |   |   |   ├── User.js                               * User Model
 |   |   |
-|   |   ├── schemas
+|   |   ├── schemas/
 |   |   |   ├── EventSchema.js                        * Schema for Event Model
 |   |   |   ├── LocationSchema.js                     * Schema for Location Model
 |   |   |   ├── UserSchema.js                         * Schema for User Model
 |   |   |
 |   |   ├── mongoose.js                               * database set up script
 |   |
-|   ├── src
-|   |   ├── routes
+|   ├── src/
+|   |   ├── middlewares/
+|   |   |   ├── authenticate.js                       *
+|   |   |   ├── check_uniqueness.js                   *
+|   |   |   ├── param.js                              *
+|   |   |   ├── permission.js                         *                                  
+|   |   |   
+|   |   ├── routes/
+|   |   |   ├── account
+|   |   |   |   ├── index.js                          * accuont routes handler
+|   |   |   |
+|   |   |   ├── auth
+|   |   |   |   ├── index.js                          * auth routes handler
+|   |   |   |
+|   |   |   ├── developer
+|   |   |   |   ├── index.js                          * developer routes handler
+|   |   |   |
 |   |   |   ├── events
 |   |   |   |   ├── index.js                          * events routes handler
+|   |   |   |
+|   |   |   ├── friendRequests
+|   |   |   |   ├── index.js                          * friendRequests routes handler
 |   |   |   |
 |   |   |   ├── users
 |   |   |   |   ├── index.js                          * users routes handler
 |   |   |   |
-|   |   |   ├── index.js                              * routes handler
+|   |   |   ├── utils_routes
+|   |   |   |   ├── index.js                          * utils routes handler
+|   |   |   |
+|   |   |   ├── index.js                              * root routes handler
 |   |
 |   ├── server.js                                     * main script
 |

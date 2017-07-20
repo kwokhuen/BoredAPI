@@ -1,0 +1,289 @@
+# GALB API
+
+## Terminology
+
+### self_user
+
+The user who owns the authentication token, aka, the user who make the API call.
+
+### userId_user
+
+The user specified by the :userId in the route's param.
+
+### eventId_event
+
+The event specified by the :eventId in the route's param.
+
+## Authentication
+
+All of the API routes except login, and create user, (and developer routes) need authentication.
+To do so, include a ("x-auth",$token) pair in the request header, where $token
+is the auth token for the session.
+
++ Request
+
+    + Headers
+
+    x-auth: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1OTZhZTVkZWRkYWEyNjJmNzU4NmU4ZGIiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNTAwMTc3ODg3fQ.mnilz-agOiLhBF8g4k24lN9x9AXNoHpB_KyZ8-fUNNo
+
+
+# Account routes
+
+## Account Login [/account/login]
+
+### Account Login [POST]
+
+Permission: all users
+
++ Request
+    + Body
+    username - user's username
+    password - user's raw password
+
+## Account Logout [/account/logout]
+
+### Account Logout [POST]
+
+Permission: all logged-in users
+
+## My Account [/account]
+
+### Create Account [POST]
+
+Permission: all users
+
++ Request
+    + Body
+    displayName (required, string) - user's display name
+    username (required, string) - username
+    firstName (required, string) - user's first name
+    lastName (required, string) - user's last name
+    age (required, number) - user's age
+    gender (required, number) - 0 for female, 1 for male
+    email (required, string) - email address for the user
+    profilePic (not required, string) - URL for the user's profile picture
+    password (required, string) - raw password for the account
+
+### View Account Info [GET]
+
+Permission: all logged-in users
+
+### Update Account Info [PUT]
+
+Permission: all logged-in users
+
+Request body should be a subset of user info in Create Account route. Only updating info should be included in the body. Set the value to `null` to unset an unrequired field. For example, `{ profilePic : null}` would unset the profile picture.
+
+## Show my Blocked Users [/account/blockedList]
+
+### View Blocked users [GET]
+
+Permission: all logged-in users
+
+## Show my Friend lists [/account/friendList]
+
+### View Friend List [GET]
+
+Permission: all logged-in users
+
+# User routes
+
+## View User Info [/users/:userId]
+
+### View userId_user's Info [GET]
+
+Permission: all logged-in users
+
+Response body would be a JSON object with the userId_user's info. Depending on self_user's relationship with userId_user, some of the info would be hiddened. See config/constants.js to see user's permission to get the info.
+
++ Response 200 (applicaiton/json)
+    + Body
+    // Guaranteed to have the following fields
+    _id: (Number) the ObjectId of userId_user in MongoDb database
+    username: (String)
+    hasBlocked: (Boolean)
+    isFriend: (Boolean)
+    hasRated: (Boolean)
+    isSelf: (Boolean)
+
+    // Some of the following info might be hiddened if self_user is blocked/ not friend/ other users.
+    displayName: (String)
+    firstName: (String)
+    lastName: (String)
+    age: (Number)
+    gender: (Number) 0 for female, 1 for male
+    email: (String)
+    blocked_users: (Array of Number) Array of _id's of users that are blocked by userId_user
+    friend_requests: (Array of Number) Array of _id's of users who have sent friend requests to userId_user
+    friends: (Array of Number) Array of _id's of userId_user's friends
+    rating: (Number)
+
+## View User's friend list [/users/:userId/friendList]
+
+### View userId_user's Friend list [GET]
+
+Permission: userId_user's friends
+
+## Send friend request [/users/:userId/sendFriendRequest]
+
+### Send friend request to userId_user [POST]
+
+Permission: all logged-in users, not blocked by userId_user
+
+## Cancel friend request [/users/:userId/cancelFriendRequest]
+
+### Cancel friend request sent to userId_user [POST]
+
+Permission: users who have sent request to userId_user
+
+## Unfriend a friend [/users/:userId/cancelFriendRequest]
+
+### Unfriend a friend userId_user [POST]
+
+Permission: friends of userId_user
+
+## Block a user [/users/:userId/block]
+
+### Block userId_user [POST]
+
+Permission: all logged-in users
+
+## Unblock a user [/users/:userId/unblock]
+
+### Unblock userId_user [POST]
+
+Permission: all users who have blocked userId_user
+
+## Rate a user [/users/:userId/rate]
+
+### Rate userId_user [POST]
+
+Permission: friends of userId_user
+
++ Request
+    + Body
+    rating: (Number) 0 to 5, inclusive
+
+# Friend Request
+
+## View friend requests [/friendRequests]
+
+### View friend requests from other users [GET]
+
+Permission: all logged-in users
+
+## Response to friend requests [/friendRequests/:userId]
+
+### Accept friend requests from userId_user [POST]
+
+Permission: users who received friend requests from userId_user
+
+### Ignore friend requests from userId_user [DELETE]
+
+Permission: users who received friend requests from userId_user
+
+# Event
+
+## Create Event [/events]
+
+### Create an Event [POST]
+
+Permission: all logged-in users
+
+## Event Info [/events/:eventId]
+
+### View eventId_event info [GET]
+
+Permission: all logged-in users
+
+### Update eventId_event info [PUT]
+
+Permission: event admins
+
+### Delete/terminate eventId_event [DELETE]
+
+Permission: event admins
+
+### Rate eventId_event [DELETE]
+
+Permission: event attendees
+
+## View Event Attendee [/events/:eventId/attendees]
+
+### View the list of event attendees [GET]
+
+Permission: all logged-in users, not blocked from eventId_event
+
+## Add/remove user from Event Attendee [/events/:eventId/attendees/:userId]
+
+### Add userId_user to the attendees list of eventId_event [POST]
+
+Permission: userId_user
+
+### Remove userId_user to the attendees list of eventId_event [DELETE]
+
+Permission: userId_user, event admins
+
+## View Event Admin [/events/:eventId/admins]
+
+### View the list of event admins [GET]
+
+Permission: all logged-in users, not blocked from eventId_event
+
+## Add/remove user from Event Admin [/events/:eventId/admins/:userId]
+
+### Add userId_user to the admins list of eventId_event [POST]
+
+Permission: event admins
+
+### Remove userId_user to the Admin list of eventId_event [DELETE]
+
+Permission: userId_user, event admins
+
+## View Event Blocked list [/events/:eventId/blockedList]
+
+### View the list of blocked Users of that event [GET]
+
+Permission: event admins
+
+## Add/remove user from Event Blocked list [/events/:eventId/blockedList/:userId]
+
+### Add userId_user to the blocked list of eventId_event [POST]
+
+Permission: event admins
+
+### Remove userId_user to the blocked list of eventId_event [DELETE]
+
+Permission: event admins
+
+# Utils/ helper routes for frontend use
+
+## Check username existance [/utils/usernameExist/:username]
+
+### Check if user with username already exists [GET]
+
+Permission: all users
+
++ Response
+    +Body
+    (boolean)
+
+## Check email existance [/utils/emailExist/:email]
+
+### Check if user with email already exists [GET]
+
+Permission: all users
+
++ Response
+    +Body
+    (boolean)
+
+
+
+
+
+
+
+
+
+

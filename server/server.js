@@ -17,6 +17,7 @@ const auth = require('src/routes/auth');
 const account = require('src/routes/account');
 const friendRequests = require('src/routes/friendRequests');
 const developer = require('src/routes/developer');
+const utils = require('src/routes/utils_routes');
 
 // initialize
 var app = express();
@@ -35,6 +36,7 @@ app.use('/auth', auth);
 app.use('/account', account);
 app.use('/friendRequests', friendRequests);
 app.use('/dev', developer);
+app.use('/utils', utils);
 
 // Error handling
 

@@ -16,6 +16,8 @@ const {eventInfoDetail} = require('src/utils/eventInfoDetail');
 
 const authenticate = require('src/middlewares/authenticate');
 
+const check_uniqueness = require('src/middlewares/check_uniqueness');
+
 // --------------------account login/logout-----------------------
 
 // login route
@@ -44,7 +46,7 @@ router.delete('/logout', authenticate, (req,res,next) => {
 // create a new user profile
 // API POST localhost:3000/account
 // permission: all users, not logged-in
-router.post('/', (req, res, next) => {
+router.post('/', check_uniqueness, (req, res, next) => {
 	let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age',
 		'gender', 'email', 'username', 'profilePic', 'password']);
 
@@ -69,7 +71,7 @@ router.get('/', authenticate, (req,res,next) =>{
 // update self_user's profile
 // API PUT localhost:3000/account
 // permission: self_user
-router.put('/', authenticate, (req,res, next) => {
+router.put('/', authenticate, check_uniqueness, (req,res, next) => {
 	let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender',
 		'email', 'username', 'profilePic', 'password']);
 	//check if request info validity
