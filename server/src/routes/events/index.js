@@ -6,43 +6,29 @@ const _ = require('lodash');
 
 const {Event} = require('db/models/Event')
 const {User} = require('db/models/User')
-const {eventInfoValidation} = require('./eventInfoValidation')
-const authenticate = require('../middlewares/authenticate');
+const {eventInfoValidation} = require('src/utils/eventInfoValidation')
+const authenticate = require('src/middlewares/authenticate');
+
+const {userInfoDetail} = require('src/utils/userInfoDetail');
+
+const {PERMISSION_SETTINGS_USER} = require('config/constants');
+const {PERMISSION_SETTINGS_EVENT} = require('config/constants');
 
 const {
   grantSelf,
   grantAdmin,
   grantAttendee,
   checkPermission,
-  checkNotSelf } = require('../middlewares/permission');
+  checkNotSelf,
+  checkDidNotRateEvent } = require('src/middlewares/permission');
 
-const { userIdParam, eventIdParam } = require('../middlewares/param');
+const { userIdParam, eventIdParam } = require('src/middlewares/param');
 
 // param middleware
 router.param('userId', userIdParam);
 router.param('eventId', eventIdParam);
 
 // Routes
-
-// ----------<for development use>-----------
-// get all events
-// API GET localhost:3000/events/dev
-router.get('/dev', (req,res,next) =>{
-  Event.find({}, function(err, result){
-    if(err) return err;
-    res.status(200).json(result);
-  });
-});
-
-// delete all events
-// API DELETE localhost:3000/events/dev
-router.delete('/dev', (req,res,next) =>{
-  if(Event.collection.drop()){
-    res.status(202).send();
-  } else {
-    res.status(500).send("Error");
-  }
-});
 
 // ------------------Event Collection--------------------
 
@@ -56,9 +42,14 @@ router.post('/', authenticate, (req, res, next) => {
     var event = new Event(eventData);
     event.admins.push(req.user);
     event.attendees.push(req.user);
+    req.user.created_events.push(event);
+    req.user.attended_events.push(event);
     event.save(function(err, createdEvent){
       if(err) return next(err);
-      res.status(201).json(createdEvent);
+      req.user.save(function(err,user){
+        if(err) return next(err);
+        res.status(201).json(createdEvent);
+      });
     });
   });
 });
@@ -69,11 +60,27 @@ router.post('/', authenticate, (req, res, next) => {
 // API GET localhost:3000/event/:eventId
 // permission: all logged-in users
 router.get('/:eventId', authenticate, (req,res,next) =>{
-  res.status(200).json(res.eventId_event);
+  let result = {};
+
+  //friend
+  if(res.eventId_event.isAdmin(req.user)){
+    result = eventInfoDetail(req.user, res.eventId_event, PERMISSION_SETTINGS_EVENT.ADMINS);
+  } //blocked by userId_user
+  else if(res.eventId_event.isAttendee(req.user)){
+    result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.ATTENDEES);
+  } //has blocked userId_user
+  else if(res.eventId_event.hasBlocked(req.user)){
+    result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.BLOCKED_USERS);
+  }
+  //everyone else
+  else {
+    result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.USERS);
+  }
+  res.status(200).json(result);
 });
 
 // update event info
-// API: PUT localhost:3000/users/:userId/events/:eventId
+// API: PUT localhost:3000/events/:eventId
 // permission: event admins
 router.put('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
@@ -96,7 +103,7 @@ router.put('/:eventId', authenticate, grantAdmin, checkPermission,
 );
 
 // Delete an event - the whole event will be terminated if the an admin decided to remove the event
-// API: DELETE localhost:3000/users/:userId/events/:eventId
+// API: DELETE localhost:3000/events/:eventId
 // permission: event admins
 router.delete('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
@@ -107,10 +114,54 @@ router.delete('/:eventId', authenticate, grantAdmin, checkPermission,
   }
 );
 
+//------------actions----------------
+
+// Rate eventId_event
+// API: POST /events/:eventId/rate
+// permission: event attendees
+router.post('/:eventId/rate', authenticate, grantAttendee, checkPermission, checkDidNotRateEvent,
+  (req, res, next) => {
+    if(req.body.rating===undefined){
+      let err = new Error('No input.');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'rating';
+      return next(err);
+    }
+    let rating = parseInt(req.body.rating);
+
+    if(isNaN(rating)){
+      let err = new Error('Rating should be a number.');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'rating';
+      return next(err);
+    }
+
+    if(rating<0 || rating > 5){
+      let err = new Error('Rating should be an integer between 0 and 5, inclusive .');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'rating';
+      return next(err);
+    }
+
+    //rate eventId_event
+    res.eventId_event.rated_users.push(req.user);
+    res.eventId_event.totalRating += rating;
+
+    //save change to database
+    res.eventId_event.save(function(err){
+      if(err) return next(err);
+      res.status(202).send();
+    });
+  }
+);
+
 //---------------Event Attendee Collection--------------
 
 // Get the whole list of attendees of an event
-// API: GET /events/:eventId/attendee
+// API: GET /events/:eventId/attendees
 // permission: all logged-in users
 router.get('/:eventId/attendees', authenticate, (req,res,next) =>{
   Event.findOne({ _id: req.params.eventId}).populate('attendees').exec(function(err,event){
@@ -118,11 +169,12 @@ router.get('/:eventId/attendees', authenticate, (req,res,next) =>{
     let attendee_list = event.attendees.toObject();
     let result = [];
     for (let i in attendee_list){
-      result.push(_.pick(attendee_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
+      result.push(userInfoDetail(req.user, attendee_list[i], PERMISSION_SETTINGS_USER.LIST));
     }
     res.status(200).json(result);
   })
 });
+
 
 //-------------------Event Attendee -------------------
 
@@ -132,6 +184,14 @@ router.get('/:eventId/attendees', authenticate, (req,res,next) =>{
 router.post('/:eventId/attendees/:userId', authenticate,
   grantSelf, checkPermission,
   (req,res,next) =>{
+    //check if userId_user is not blocked from the event
+    if(res.eventId_event.hasBlocked(res.userId_user)){
+      let err = new Error('User ' + req.params.userId +' is blocked from the event.');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'attendee';
+      return next(err);
+    }
     //check if userId_user already in attendees list
     if(res.eventId_event.isAttendee(res.userId_user)){
       let err = new Error('User ' + req.params.userId +' already in attendees list');
@@ -141,9 +201,14 @@ router.post('/:eventId/attendees/:userId', authenticate,
       return next(err);
     }
     res.eventId_event.attendees.push(res.userId_user);
+    res.userId_user.attended_events.push(event);
+
     res.eventId_event.save(function(err, event){
       if(err) return next(err);
-      res.status(201).json(res.eventId_event);
+      res.userId_user.save(function(err,user){
+        if(err) return next(err);
+        res.status(201).json(res.eventId_event);
+      });
     });
   }
 );
@@ -175,9 +240,15 @@ router.delete('/:eventId/attendees/:userId', authenticate,
       res.eventId_event.admins.pull(res.userId_user._id);
     }
     res.eventId_event.attendees.pull(res.userId_user._id);
+    res.userId_user.attended_events.pull(res.eventId_event._id);
+    if(res.userId_user.created_events.indexOf(res.eventId_event._id) !== -1){
+      res.userId_user.created_events.pull(res.eventId_event._id);
+    }
     res.eventId_event.save(function(err, event){
       if(err) return next(err);
-      res.status(202).json(res.eventId_event);
+      res.userId_user.save(function(err, user){
+        res.status(202).json(res.eventId_event);
+      });
     });
   }
 );
@@ -194,7 +265,7 @@ router.get('/:eventId/admins', authenticate, (req,res,next) =>{
     let admin_list = event.admins.toObject();
     let result = [];
     for (let i in admin_list){
-      result.push(_.pick(admin_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
+      result.push(userInfoDetail(req.user, admin_list[i], PERMISSION_SETTINGS_USER.LIST));
     }
     res.status(200).json(result);
   })
@@ -269,15 +340,15 @@ router.delete('/:eventId/admins/:userId', authenticate,
 
 // Get the whole list of blocked Users of that event
 // API: GET /events/:eventId/blockedUsers
-// permission: all logged-in users
-router.get('/:eventId/admins', authenticate, grantAdmin, checkPermission,
+// permission: event admins
+router.get('/:eventId/blockedUsers', authenticate, grantAdmin, checkPermission,
   (req, res, next) =>{
     Event.findOne({ _id: req.params.eventId}).populate('blocked_users').exec(function(err,event){
       if(err) return next(err);
       let blocked_list = event.blocked_users.toObject();
       let result = [];
       for (let i in blocked_list){
-        result.push(_.pick(blocked_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
+        result.push(userInfoDetail(req.user, blocked_list[i], PERMISSION_SETTINGS_USER.BLOCKED_USERS));
       }
       res.status(200).json(result);
     });
@@ -289,13 +360,14 @@ router.get('/:eventId/admins', authenticate, grantAdmin, checkPermission,
 
 // Add userId_user to the blocked_users list
 // API: POST /events/:eventId/blockedUsers/:userId
-// permission: admin
-router.post('/:eventId/admins/:userId', authenticate,
+// permission: event admins
+router.post('/:eventId/blockedUsers/:userId', authenticate,
   checkNotSelf, grantAdmin, checkPermission,
   (req, res, next) =>{
     //remove userId_user from attendee list if in
     if(res.eventId_event.isAttendee(res.userId_user)){
       res.eventId_event.attendees.pull(res.userId_user._id);
+      res.userId_user.attended_events.pull(res.eventId_event._id);
     }
     //remove userId_user from admin list if in
     if(res.eventId_event.isAdmin(res.userId_user)){
@@ -309,18 +381,23 @@ router.post('/:eventId/admins/:userId', authenticate,
       err.target = 'user';
       return next(err);
     }
+    if(res.userId_user.created_events.indexOf(res.eventId_event._id) !== -1){
+      res.userId_user.created_events.pull(res.eventId_event._id);
+    }
     res.eventId_event.blocked_users.push(res.userId_user);
     res.eventId_event.save(function(err, event){
       if(err) return next(err);
-      res.status(201).json(res.eventId_event);
+      res.userId_user.save(function(err, user){
+        res.status(201).json(res.eventId_event);
+      });
     });
   }
 );
 
 // Unblock userId_user list from the event
 // API: DELETE /events/:eventId/blockedUsers/:userId
-// permission: admin
-router.delete('/:eventId/admins/:userId', authenticate,
+// permission: event admins
+router.delete('/:eventId/blockedUsers/:userId', authenticate,
   grantAdmin, checkPermission,
   (req,res,next) => {
     //check if userId_user in blocked_users list

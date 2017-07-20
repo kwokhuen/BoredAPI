@@ -14,6 +14,9 @@ const index = require('src/routes/index');
 const events = require('src/routes/events');
 const users = require('src/routes/users');
 const auth = require('src/routes/auth');
+const account = require('src/routes/account');
+const friendRequests = require('src/routes/friendRequests');
+const developer = require('src/routes/developer');
 
 // initialize
 var app = express();
@@ -29,6 +32,9 @@ app.use('/', index);
 app.use('/events', events);
 app.use('/users', users);
 app.use('/auth', auth);
+app.use('/account', account);
+app.use('/friendRequests', friendRequests);
+app.use('/dev', developer);
 
 // Error handling
 

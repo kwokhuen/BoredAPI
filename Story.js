@@ -1,59 +1,158 @@
-// version 1.0.0 Backend
-// User's story
-// 1. login with facebook - authentication with Facebook API
-// 2. create an event - 48 hours period of time
-// API:  GET localhost:3000/users/:userId/events/new
-// 3. update an event - e.g location, time, date, name
-// API: PUT localhost:3000/users/:userId/events/:eventId
-    // 4. delete an event - the whole event will be terminated if the host decided to remove the event
-    // API: DELETE localhost:3000/users/:userId/events/:eventId
-    // 4. leave an event
-    // API DELETE localhost:3000/users/:userId/events/:eventId
-// 5. attend an event - any person could join an event
-// API POST localhost:3000/users/:userId/events/:eventId
-// 6. webSocket after joining the event (broadcast socket for all participants)
-// socket.io
-// 7. update user profile
-// API PUT localhost:3000/users/:userId
-// 8. create user profile - interest, age, name, description, gender, religion, ethnicity, location
-// API POST localhost:3000/users/new
-// things to do: figure out what data could be fetched from Facebook (!important)
-// 9. get an event list based on location (within 10 miles) and time (within 48 hours) on the first page
-// API GET localhost:3000/users/:userId/events
-// 10. search an event based on location
-// API POST localhost:3000/search?location=xxx
-// 11. bookmark events (saved on their phone / server ?)
-// API POST localhost:3000/users/:userId/events/:eventId/bookmark
+//------------------------User routes----------------------------
+
+// ------------------My Account/My info----------------------
+
+// login route
+// API POST localhost:3000/account/login
+// permission: all users
+
+// logout route
+// API POST localhost:3000/account/logout
+// permission: all logged-in users
+
+// create a new user
+// API POST localhost:3000/account
+// permission: all users, not logged-in
+
+// view self_user's profile
+// API GET localhost:3000/account
+// permission: self_user
+
+// update self_user's profile
+// API PUT localhost:3000/account
+// permission: self_user
+
+// show users blocked by self_user
+// API GET localhost:3000/account/blockedList
+// permission: self_user
+
+// show friendList of self_user
+// API GET localhost:3000/account/friendList
+// permission: self_user
+
+// -------------Interact with Other Users-----------------
+
+//---get user's info---
+
+// get userId_user's profile
+// API GET localhost:3000/users/:userId
+// permission: all logged-in users
+
+// see userId_user's friendlist
+// API GET localhost:3000/users/:userId/friendList
+// permission: userId_user's friends
+
+//-----do actions-----
+
+// Send friend request to userId_user
+// API POST localhost:3000/users/:userId/sendFriendRequest
+// permission: all logged-in users
+
+// Cancel friend request sent to userId_user
+// API POST localhost:3000/users/:userId/cancelFriendRequest
+// permission: all logged-in users
+
+// Unfriend userId_user
+// API POST localhost:3000/users/:userId/unfriend
+// permission: userId_user's friend
+
+// Block userId_user
+// API POST localhost:3000/users/:userId/block
+// permission: all logged-in users
+
+// Unblock userId_user
+// API POST localhost:3000/users/:userId/unblock
+// permission: users who have blocked userId_user
+
+// Rate userId_user
+// API POST localhost:3000/users/:userId/rate
+// permission: userId_user's friends
+
+//-------------Friend requests received from other users-------------------
+
+// View friend requests
+// API GET localhost:3000/friendRequests
+// permission: all logged-in users
+
+// Accept friend request from userId_user
+// API POST localhost:3000/friendRequests/:userId
+// permission: all logged-in users
+
+// Ignore friend request from userId_user
+// API DELETE localhost:3000/friendRequests/:userId
+// permission: all logged-in users
 
 
 
-// 2. create an event - 48 hours period of time
-// API: POST localhost:3000/users/:userId/events
+//------------------------Event routes----------------------------
 
-// 3. update an event by host - e.g location, time, date, name
-// API: PUT localhost:3000/users/:userId/events/:eventId
+// ------------------Event--------------------
 
-// 4. delete an event - the whole event will be terminated if the host decided to remove the event
-// API: DELETE localhost:3000/users/:userId/events/:eventId
+// create an event
+// API: POST localhost:3000/events
+// permission: all logged-in users
 
-// 4. leave an event
-// API DELETE localhost:3000/users/:userId/events/:eventId
+// get an eventId_event info
+// API GET localhost:3000/event/:eventId
+// permission: all logged-in users
 
-// 5. attend an event - any person could join an event
-// API POST localhost:3000/users/:userId/events/:eventId
+// update eventId_event info
+// API: PUT localhost:3000/events/:eventId
+// permission: event admins
 
-// 7. update user profile
-// API PUT localhost:3000/users/:userId
+// Delete eventId_event - the whole event will be terminated if the an admin decided to do so
+// API: DELETE localhost:3000/events/:eventId
+// permission: event admins
 
-// 8. create user profile - interest, age, name, description, gender, religion, ethnicity, location
-// API POST localhost:3000/users
-// things to do: figure out what data could be fetched from Facebook (!important)
+// Rate eventId_event
+// API: POST localhost:3000/events/:eventId/rate
+// permission: event attendees
 
-// 9. get an event list based on location (within 10 miles) and time (within 48 hours) on the first page
-// API GET localhost:3000/users/:userId/events
+//-------------------Event Attendee -------------------
 
-// 10. search an event based on location
-// API POST localhost:3000/search?location=xxx
+// Get the whole list of attendees of eventId_event
+// API: GET /events/:eventId/attendees
+// permission: all logged-in users
 
-// 11. bookmark events (saved on their phone / server ?)
-// API POST localhost:3000/users/:userId/events/:eventId/bookmark
+
+// Add userId_user to the attendees list of eventId_event
+// API: POST /events/:eventId/attendees/:userId
+// permission: userId_user
+
+// Remove userId_user from the attendee list of eventId_event
+// API: DELETE /events/:eventId/attendees/:userId
+// permission: userId_user, admin
+
+//------------Event Admin -------------------
+// /event/:eventId/admin
+
+// Get the whole list of admins of eventId_event
+// API: GET /events/:eventId/admins
+// permission: all logged-in users
+
+// Add userId_user from attendee list to the admin list
+// API: POST /events/:eventId/admins/:userId
+// permission: admin
+
+// Remove user :userId from the admin list
+// API: DELETE /events/:eventId/admins/:userId
+
+//------------------Event Blocked users -------------------
+// /event/:eventId/blockedList
+
+// Get the whole list of blocked Users of that event
+// API: GET /events/:eventId/blockedList
+// permission: admin
+
+// Add userId_user to the blocked_users list
+// API: POST /events/:eventId/blockedList/:userId
+// permission: admin
+
+// Unblock userId_user list from the event
+// API: DELETE /events/:eventId/blockedList/:userId
+// permission: admin
+
+
+// NOTE for frontend convenience
+// later may need a route to verify username/email/cell uniqueness
+// write a helper method

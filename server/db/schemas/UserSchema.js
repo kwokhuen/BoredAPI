@@ -10,6 +10,10 @@ const _ = require('lodash');
 
 const Schema = mongoose.Schema;
 
+const {EventSchema} = require('./EventSchema')
+
+const {PERMISSION_SETTINGS} = require('config/constants');
+
 // import sub-schema
 // const {LocationSchema} = require('./LocationSchema');
 
@@ -83,7 +87,10 @@ const UserSchema = new Schema({
     type: Number,
     required: false,
     default: 0
-  }
+  },
+  //Event
+  created_events:[{type:Schema.ObjectId, ref:"Event"}],
+  attended_events:[{type:Schema.ObjectId, ref:"Event"}]
 });
 
 UserSchema.pre('save', function(next) {
@@ -149,15 +156,13 @@ UserSchema.methods.removeToken = function(token) {
   return user.update({$pull: {tokens: {token}}});
 }
 
-//override mongoose to only send back _id, username and displayName
-// UserSchema.methods.toJSON = function() {
-//   let userObject = this.toObject();
-//   userObject.rating = this.rating;
-//   return _.pick(userObject,
-//     ['_id', 'username', 'displayName', 'firstName','lastName','age',
-//     'gender','profilePic','friends','friend_requests','blocked_users',
-//     'rating', 'email'])
-// }
+//override mongoose to only send needed info
+UserSchema.methods.toJSON = function() {
+  let userObject = this.toObject();
+  userObject.rating = this.rating;
+  //userObject = _.pick(userObject,PERMISSION_SETTINGS_USER.ALL_FIELDS);
+  return userObject;
+}
 
 UserSchema.methods.equals = function(user) {
   return this._id.toString() === user._id.toString();
@@ -167,8 +172,8 @@ UserSchema.methods.isFriendWith = function(user) {
   return this.friends.indexOf(user._id) !== -1;
 }
 
-UserSchema.methods.hasSentFriendRequestTo = function(user) {
-  return user.friend_requests.indexOf(this._id) !== -1;
+UserSchema.methods.hasReceivedFriendRequestFrom = function(user) {
+  return this.friend_requests.indexOf(user._id) !== -1;
 }
 
 UserSchema.methods.hasBlocked = function(user) {

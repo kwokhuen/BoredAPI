@@ -4,240 +4,139 @@ const express = require('express');
 const router = express.Router();
 const _ = require('lodash');
 
+const {PERMISSION_SETTINGS_USER} = require('config/constants');
+
 const {User} = require('db/models/User');
-const {userInfoValidation} = require('./userInfoValidation');
-const authenticate = require('../middlewares/authenticate');
+const {Event} = require('db/models/Event');
+
+const {userInfoValidation} = require('src/utils/userInfoValidation');
+const authenticate = require('src/middlewares/authenticate');
+
+const {userInfoDetail} = require('src/utils/userInfoDetail');
 
 const {
-  grantSelf,
-  checkPermission,
   checkNotBlockedByUser,
   checkIsFriendWith,
   checkDidNotBlock,
-  checkDidNotRate,
-  checkSelf,
-  checkNotSelf} = require('../middlewares/permission');
+  checkDidNotRateUser,
+  checkNotSelf} = require('src/middlewares/permission');
 
-const { userIdParam } = require('../middlewares/param');
+const { userIdParam } = require('src/middlewares/param');
 
 // param middleware
 // whenever userId is in param
 // find the user from db based on userId and assign it to res.userId_user
 router.param('userId', userIdParam);
 
-// Routes
+//-------------------Routes-----------------------
 
-// ----------<for development use>-----------
-// get all users
-// API GET localhost:3000/users/dev
-router.get('/dev', (req,res) =>{
-  User.find({}, function(err, result){
-    if(err) return err;
-    res.status(200).json(result);
-  });
-});
-
-// ----------<for development use>-----------
-// delete all users
-// API DELETE localhost:3000/users/dev
-router.delete('/dev', (req,res) =>{
-  if(User.collection.drop()){
-    res.status(202).send();
-  } else {
-    res.status(500).json("Error");
-  }
-});
-
-// ----------<for development use>-----------
-// Create a list of fake users
-// API DELETE localhost:3000/users/dev
-router.post('/dev', (req,res,next) =>{
-  let user1 = new User({
-    "_id": "596ae5deddaa262f7586e8db",
-    "username": "MarAtt",
-    "displayName": "MarAtt",
-    "firstName": "Marlena",
-    "lastName": "Atterberry",
-    "age": 23,
-    "gender": 1,
-    "email": "chiang@gmail.com",
-    "password": "$2a$10$RRIXfLd9fbPO4/SqKHnS7.i7Y0kE8sTpVD8/RZGF5B.bw17XztUuq",
-    "__v": 10,
-    "blocked_users": [],
-    "friend_requests": [],
-    "friends": [],
-    "tokens": [
-        {
-            "access": "auth",
-            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1OTZhZTVkZWRkYWEyNjJmNzU4NmU4ZGIiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNTAwMTc3ODg3fQ.mnilz-agOiLhBF8g4k24lN9x9AXNoHpB_KyZ8-fUNNo",
-            "_id": "596ae5dfddaa262f7586e8dc"
-        }
-    ]
-  });
-
-  let user2 = new User({
-    "_id": "596ae629ddaa262f7586e8dd",
-    "username": "AnOli",
-    "displayName": "Andreas Olivieri",
-    "firstName": "Andreas",
-    "lastName": "Olivieri",
-    "age": 20,
-    "gender": 1,
-    "email": "andreas@mail.com",
-    "password": "$2a$10$tyH3NIxy0Jfmgpj5FqtzXeDPULYyBB3J3NuyUTRqaKBjJlHvHZKYe",
-    "__v": 8,
-    "blocked_users": [],
-    "friend_requests": [],
-    "friends": [],
-    "tokens": [
-        {
-            "access": "auth",
-            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1OTZhZTYyOWRkYWEyNjJmNzU4NmU4ZGQiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNTAwMTc3OTYxfQ.HuHGYekrhbmXxV2dkm2IooRFhSC20apT4bwr5GF7VyY",
-            "_id": "596ae629ddaa262f7586e8de"
-        }
-    ]
-  });
-
-  let fakeUsers = [user1, user2];
-  User.insertMany(fakeUsers).then(()=>{
-    res.status(201).json("list of fake users created");
-  }).catch(err=>{return next(err);})
-});
-
-
-// ----------------User Collection------------------
-
-// create a new user profile
-// API POST localhost:3000/users
-// permission: all users
-router.post('/', (req, res, next) => {
-  let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
-
-  userInfoValidation(userData, next, false, ()=>{
-    //if info valid, create the user
-    let newUser = new User(userData);
-    newUser.save().then(() => {
-      return newUser.generateAuthToken();
-    }).then((token) => {
-      res.header('x-auth', token).status(201).json(newUser.toJSON());
-    }).catch(err => res.status(400).send(err));
-  });
-});
-
-// --------------------User-----------------------
+//--------------get info-----------------
 
 // get a user profile
 // API GET localhost:3000/users/:userId
 // permission: all logged-in users
-router.get('/:userId', authenticate,
- (req,res,next) =>{
-   let result = res.userId_user.toJSON();
+router.get('/:userId', authenticate, (req,res,next) =>{
+  // redirect to acount page if userId_user is self
+  if(req.user.equals(res.userId_user))
+    return res.redirect('/account');
 
-   if(req.user.hasBlocked(res.userId_user))
-    result.hasBlocked = true;
-   else {
-     result.hasBlocked = false;
-   }
+  let result = {};
 
-   if(req.user.isFriendWith(res.userId_user))
-    result.isFriend = true;
-   else {
-     result.isFriend = false;
-   }
-
-   if(res.userId_user.wasRatedBy(req.user))
-    result.hasRated = true;
-   else {
-     result.hasRated = false;
-   }
-
-   if(res.userId_user.equals(req.user))
-    result.isSelf = true;
-   else {
-     result.isSelf = false;
-   }
-
-   //self
-   if(req.user.equals(res.userId_user))
-     res.status(200).json(result);
    //friend
-   else if(req.user.isFriendWith(res.userId_user)){
-     result = _.pick(result, ['_id', 'username', 'displayName', 'firstName','lastName','age',
-       'gender','profilePic','friends','rating','hasBlocked','isFriend','hasRated','isSelf']);
-     res.status(200).json(result);
+   if(req.user.isFriendWith(res.userId_user)){
+     result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.FRIENDS);
    } //blocked by userId_user
    else if(res.userId_user.hasBlocked(req.user)){
-     result = _.pick(result, ['_id', 'username', 'displayName','hasBlocked',
-       'isFriend','hasRated','isSelf']);
-     res.status(200).json(result);
+      result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.BLOCKED_USERS);
    } //has blocked userId_user
    else if(req.user.hasBlocked(res.userId_user)){
-     result = _.pick(result, ['_id', 'username', 'displayName','hasBlocked',
-       'isFriend','hasRated','isSelf']);
-     res.status(200).json(result);
+      result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.BLOCKED_USERS);
    }
    //everyone else
    else {
-     result = _.pick(result, ['_id', 'username', 'displayName', 'firstName','lastName','age',
-       'gender','profilePic','friends','rating','hasBlocked','isFriend','hasRated','isSelf']);
-     res.status(200).json(result);
+      result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.USERS);
    }
-  }
-);
-
-// update user profile
-// API PUT localhost:3000/users/:userId
-// permission: userId_user
-router.put('/:userId', authenticate, checkSelf,
-  (req,res, next) => {
-    let userData = _.pick(req.body, ['displayName', 'firstName', 'lastName', 'age', 'gender', 'email', 'username', 'profilePic', 'password']);
-    //check if request info validity
-    userInfoValidation(userData, next, true, ()=>{
-      for(let i in userData){
-        //update user info
-        if(userData[i]!==null)
-          req.user.set(i,userData[i]);
-        else { //unset fields if they are null
-          req.user.set(i,undefined);
-        }
-      };
-      req.user.save(function(err){
-        if(err) return next(err);
-        res.status(202).send();
-      });
-    });
-  }
-);
-
-// --------------------User login/logout-----------------------
-
-// login route
-// API POST localhost:3000/users/login
-// permission: all users
-router.post('/login', (req,res,next) => {
-  let userData = _.pick(req.body, ['username', 'password']);
-  User.findByCredential(userData.username, userData.password).then(user => {
-    return user.generateAuthToken().then(token => {
-      res.status(200).header('x-auth', token).send(user);
-    })
-  }).catch(e => res.status(400).send())
+   res.status(200).json(result);
 });
 
-// logout route
-// API DELETE localhost:3000/users/logout
-// permission: all logged-in users
-router.delete('/logout', authenticate, (req,res,next) => {
-  let user = req.user;
-  let token = req.token;
-  user.removeToken(token).then(() => res.status(200).send(), () => res.status(400).send());
+// see userId_user's friendlist
+// API GET localhost:3000/users/:userId/friendList
+// permission: userId_user's friends
+router.get('/:userId/friendList', authenticate, (req, res, next) => {
+  // redirect to account friend list page if userId_user is self
+  if(req.user.equals(res.userId_user))
+    return res.redirect('/account/friendList');
+
+  // check if user is userId_user's friend
+  if(!res.userId_user.isFriendWith(req.user)){
+    let err = new Error('User is not authurized for this action.');
+    err.status = 401;
+    err.name = 'Permission Denied';
+    err.target = 'user';
+    return next(err);
+  }
+
+  let friend_list = res.userId_user.friends.toObject();
+  let result = [];
+  User.find({'_id': {$in:friend_list}}, function(err, friends){
+    let result = [];
+    for(let index in friends){
+      let the_user_info = {};
+
+      if(!friends[index].hasBlocked(req.user))
+        the_user_info = userInfoDetail(req.user, friends[index], PERMISSION_SETTINGS_USER.LIST);
+      else
+        the_user_info = userInfoDetail(req.user, friends[index], PERMISSION_SETTINGS_USER.BLOCKED_USERS);
+
+      result.push(the_user_info);
+    }
+    res.status(200).json(result);
+  });
 });
 
-//---------------friends routes----------------------
+// see userId_user's attended_events
+// API GET localhost:3000/users/:userId/attended_events
+// permission: userId_user's friend
+router.get('/:userId/attended_events', authenticate, (req, res, next) => {
+  // redirect to account friend list page if userId_user is self
+  if(req.user.equals(res.userId_user))
+    return res.redirect('/account/friendList');
 
-// Send friend request
-// API POST localhost:3000/users/:userId/friendRequest
+  // check if user is userId_user's friend
+  if(!res.userId_user.isFriendWith(req.user)){
+    let err = new Error('User is not authurized for this action.');
+    err.status = 401;
+    err.name = 'Permission Denied';
+    err.target = 'user';
+    return next(err);
+  }
+
+  let event_list = res.userId_user.attended_events.toObject();
+  let result = [];
+  Event.find({'_id': {$in:event_list}}, function(err, events){
+    let result = [];
+    for(let index in events){
+      let the_event_info = {};
+
+      if(!events[index].hasBlocked(req.user))
+        the_event_info = userInfoDetail(req.user, events[index], PERMISSION_SETTINGS_USER.FRIENDS_FRIENDS);
+      else
+        the_event_info = userInfoDetail(req.user, events[index], PERMISSION_SETTINGS_USER.BLOCKED_USERS);
+
+      result.push(the_event_info);
+    }
+    res.status(200).json(result);
+  });
+});
+
+//--------------do actions-----------------
+
+//-----send/cancel friend request--------
+
+// Send friend request to userId_user
+// API POST localhost:3000/users/:userId/sendFriendRequest
 // permission: all logged-in users
-router.post('/:userId/friendRequest', authenticate,
+router.post('/:userId/sendFriendRequest', authenticate,
   checkNotSelf, checkNotBlockedByUser, checkDidNotBlock, (req, res, next) => {
   //check if userId_user is not friend
   if(res.userId_user.isFriendWith(req.user)){
@@ -248,7 +147,7 @@ router.post('/:userId/friendRequest', authenticate,
     return next(err);
   }
   //check if friend request has not been sent already
-  if(req.user.hasSentFriendRequestTo(res.userId_user)){
+  if(res.userId_user.hasReceivedFriendRequestFrom(req.user)){
     let err = new Error('Friend request was already sent.');
     err.status = 409;
     err.name = 'BadRequest';
@@ -256,8 +155,9 @@ router.post('/:userId/friendRequest', authenticate,
     return next(err);
   }
   //check if res.userId_user did not send friend request
-  if(res.userId_user.hasSentFriendRequestTo(req.user)){
-    let err = new Error('User ' + req.params.userId +' already sent you a friend request. Accept it or ignore it.');
+  if(req.user.hasReceivedFriendRequestFrom(res.userId_user)){
+    let err = new Error('User ' + req.params.userId +
+      ' already sent you a friend request. Accept it or ignore it.');
     err.status = 409;
     err.name = 'BadRequest';
     err.target = 'friendRequest';
@@ -271,12 +171,12 @@ router.post('/:userId/friendRequest', authenticate,
   });
 });
 
-// Cancel friend request
-// API DELETE localhost:3000/users/:userId/friendRequest
+// Cancel friend request sent to userId_user
+// API POST localhost:3000/users/:userId/cancelFriendRequest
 // permission: all logged-in users
-router.delete('/:userId/friendRequest', authenticate, (req, res, next) => {
+router.post('/:userId/cancelFriendRequest', authenticate, (req, res, next) => {
   //check if friend request is sent
-  if(!req.user.hasSentFriendRequestTo(res.userId_user)){
+  if(!res.userId_user.hasReceivedFriendRequestFrom(req.user)){
     let err = new Error('No friend request was sent.');
     err.status = 409;
     err.name = 'NotFound';
@@ -291,80 +191,10 @@ router.delete('/:userId/friendRequest', authenticate, (req, res, next) => {
   });
 });
 
-// Ignore friend request
-// API POST localhost:3000/users/:userId/ignoreRequest
-// permission: all logged-in users
-router.post('/:userId/ignoreRequest', authenticate, (req, res, next) => {
-  //check if friend request is received
-  if(!res.userId_user.hasSentFriendRequestTo(req.user)){
-    let err = new Error('No friend request was received.');
-    err.status = 409;
-    err.name = 'NotFound';
-    err.target = 'friendRequest';
-    return next(err);
-  }
-  // remove req.user from userId_user's friend_requests list
-  req.user.friend_requests.pull(res.userId_user._id);
-  req.user.save(function(err){
-    if(err) return next(err);
-    res.status(202).send();
-  });
-});
-
-// show friend list of a user
-// API GET localhost:3000/users/:userId/friends
-// permission: friends of userId_user
-router.get('/:userId/friends', authenticate, checkIsFriendWith, (req, res, next) => {
-  User.findOne({ _id: req.params.userId}).populate('friends').exec(function(err,user){
-    if(err) return next(err);
-    //friend_list would be an array of ObjectId
-    let friend_list = user.friends.toObject();
-    let result = [];
-
-    User.find({'_id': {$in:friend_list}}, function(err, friends){
-      let result = [];
-      for(let index in friends){
-        //check if friends[index] has blocked req.user
-        if(!friends[index].hasBlocked(req.user))
-          result.push(_.pick(friends[index],['_id','username', 'displayName', 'firstName', 'lastName', 'age']));
-        else {
-          result.push(_.pick(friends[index],['_id','username']));
-        }
-      }
-      res.status(200).json(result);
-    });
-  })
-});
-
-// Confirm friend request
-// API POST localhost:3000/users/:userId/friends
-// permission: all logged-in users
-router.post('/:userId/friends', authenticate, (req, res, next) => {
-  //check if friend request is received
-  if(!res.userId_user.hasSentFriendRequestTo(req.user)){
-    let err = new Error('No friend request was received.');
-    err.status = 409;
-    err.name = 'NotFound';
-    err.target = 'friendRequest';
-    return next(err);
-  }
-  req.user.friend_requests.pull(res.userId_user._id);
-  req.user.friends.push(res.userId_user);
-  req.user.save(function(err){
-    if(err) return next(err);
-    res.userId_user.friends.push(req.user);
-    res.userId_user.save(function(err){
-      if(err) return next(err);
-      res.status(202).send();
-    });
-  });
-});
-
-// Unfriend a friend
-// API DELETE localhost:3000/users/:userId/friends
-// permission: all logged-in users
-// remove req.user from userId_user's friend_requests list
-router.delete('/:userId/friends', authenticate, checkIsFriendWith,
+// Unfriend userId_user
+// API POST localhost:3000/users/:userId/unfriend
+// permission: userId_user's friend
+router.post('/:userId/unfriend', authenticate, checkIsFriendWith,
   (req, res, next) => {
     req.user.friends.pull(res.userId_user._id);
     res.userId_user.friends.pull(req.user._id);
@@ -378,40 +208,25 @@ router.delete('/:userId/friends', authenticate, checkIsFriendWith,
   }
 );
 
-//-----------------block users routes----------------------
-// show blocked users
-// API GET localhost:3000/users/:userId/block
-// permission: self
-router.get('/:userId/block', authenticate, checkSelf, (req, res, next) => {
-  User.findOne({ _id: req.params.userId}).populate('blocked_users').exec(function(err,user){
-    if(err) return next(err);
-    let blocked_list = user.blocked_users.toObject();
-    let result = [];
-    for (let i in blocked_list){
-      result.push(_.pick(blocked_list[i],['_id','displayName', 'firstName', 'lastName', 'age', 'username']));
-    }
-    res.status(200).json(result);
-  })
-});
+//-----------------block/unblock users----------------------
 
-// Block a user
+// Block userId_user
 // API POST localhost:3000/users/:userId/block
 // permission: all logged-in users
 router.post('/:userId/block', authenticate, checkNotSelf, checkNotBlockedByUser,
-  checkDidNotBlock,
-  (req, res, next) => {
+  checkDidNotBlock, (req, res, next) => {
   //remove userId_user from friend list if friended
   if(req.user.isFriendWith(res.userId_user)){
     req.user.friends.pull(res.userId_user._id);
     res.userId_user.friends.pull(req.user._id);
   }
-  //remove friend request if received
-  if(res.userId_user.hasSentFriendRequestTo(req.user)){
-    req.user.friend_requests.pull(res.userId_user._id);
-  }
   //remove friend request if sent
-  if(req.user.hasSentFriendRequestTo(res.userId_user)){
+  if(res.userId_user.hasReceivedFriendRequestFrom(req.user)){
     res.userId_user.friend_requests.pull(req.user._id);
+  }
+  //remove friend request if received
+  if(req.user.hasReceivedFriendRequestFrom(res.userId_user)){
+    req.user.friend_requests.pull(res.userId_user._id);
   }
   //block userId_user
   req.user.blocked_users.push(res.userId_user);
@@ -425,13 +240,13 @@ router.post('/:userId/block', authenticate, checkNotSelf, checkNotBlockedByUser,
   });
 });
 
-// Unblock a user
-// API POST localhost:3000/users/:userId/block
-// permission: all logged-in users
-router.delete('/:userId/block', authenticate, (req, res, next) => {
+// Unblock userId_user
+// API POST localhost:3000/users/:userId/unblock
+// permission: users who have blocked userId_user
+router.post('/:userId/unblock', authenticate, (req, res, next) => {
   //check if userId_user has not been blocked
   if(!req.user.hasBlocked(res.userId_user)){
-    let err = new Error('You did not block User ' + req.params.userId + ' .');
+    let err = new Error('You did not block User ' + req.params.userId + '.');
     err.status = 409;
     err.name = 'BadRequest';
     err.target = 'block';
@@ -446,13 +261,11 @@ router.delete('/:userId/block', authenticate, (req, res, next) => {
   });
 });
 
-//-----------------rate users routes----------------------
-
-// rate a user
+// Rate userId_user
 // API POST localhost:3000/users/:userId/rate
-// permission: all logged-in users
+// permission: userId_user's friends
 router.post('/:userId/rate', authenticate, checkNotSelf, checkNotBlockedByUser,
-  checkDidNotBlock, checkIsFriendWith, checkDidNotRate,
+  checkDidNotBlock, checkIsFriendWith, checkDidNotRateUser,
   (req, res, next) => {
     if(req.body.rating===undefined){
       let err = new Error('No input.');
@@ -490,21 +303,5 @@ router.post('/:userId/rate', authenticate, checkNotSelf, checkNotBlockedByUser,
     });
   }
 );
-
-// // delete a user profile
-// // API DELETE localhost:3000/users/:userId
-// router.delete('/:userId',
-//   //TODO: insert user authentication middleware:
-//   (req, res, next) => {
-//     //TODO: delete all data associated with that user: events, etc
-//     res.userId_user.remove(function(err){
-//       if(err) return next(err);
-//       res.status(202).send();
-//     });
-// });
-
-// NOTE for frontend convenience
-// later may need a route to verify username/email/cell uniqueness
-// write a helper method
 
 module.exports = router;
