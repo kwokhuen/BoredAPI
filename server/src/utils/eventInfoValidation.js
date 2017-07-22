@@ -60,6 +60,9 @@ var eventInfoValidation = (eventInfo, next, update, callback) =>{
     + EVENT_INFO_CONST.MIN_DESCRIPTION_LENGTH + ' and '
     + EVENT_INFO_CONST.MAX_DESCRIPTION_LENGTH;
 
+  const badMaxAttendees = 'max_attendees must be less than '
+    + EVENT_INFO_CONST.MAX_ATTENDESS;
+
   //validate fields
   fieldValidation(eventInfo.name, 'name', true, 'string',
     badName, function(field){
@@ -71,6 +74,12 @@ var eventInfoValidation = (eventInfo, next, update, callback) =>{
     badDescription, function(field){
       return (field.length>=EVENT_INFO_CONST.MIN_DESCRIPTION_LENGTH
         && field.length <= EVENT_INFO_CONST.MAX_DESCRIPTION_LENGTH);
+  });
+
+  fieldValidation(eventInfo.max_attendees, 'max_attendees', true, 'number',
+    badMaxAttendees, function(field){
+      return (field >= 2
+        && field <= EVENT_INFO_CONST.MAX_ATTENDESS);
   });
 
   if(haveError)

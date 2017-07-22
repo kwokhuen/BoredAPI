@@ -13,7 +13,8 @@ module.exports = {
     MIN_NAME_LENGTH: 5,
     MAX_NAME_LENGTH: 100,
     MIN_DESCRIPTION_LENGTH: 20,
-    MAX_DESCRIPTION_LENGTH: 200
+    MAX_DESCRIPTION_LENGTH: 200,
+    MAX_ATTENDESS: 100
   },
   PERMISSION_SETTINGS_USER:{
     ALL_FIELDS:['_id', 'username', 'displayName', 'firstName','lastName','age',
@@ -32,13 +33,13 @@ module.exports = {
       'gender','profilePic']
   },
   PERMISSION_SETTINGS_EVENT:{
-    ALL_FIELDS:['_id','name','description','admins','attendees','blocked_users',
+    ALL_FIELDS:['_id','name','description','max_attendees','admins','attendees','blocked_users',
       'num_attendees','num_admins','rating'],
-    ADMINS:['_id','name','description','admins','attendees','blocked_users',
+    ADMINS:['_id','name','description','max_attendees','admins','attendees','blocked_users',
       'num_attendees','num_admins','rating'],
-    ATTENDEES:['_id','name','description','admins','attendees','num_attendees',
+    ATTENDEES:['_id','name','description','max_attendees','admins','attendees','num_attendees',
       'num_admins','rating'],
-    USERS:['_id','name','description','admins','attendees','num_attendees',
+    USERS:['_id','name','description','max_attendees','admins','attendees','num_attendees',
       'num_admins','rating'],
     BLOCKED_USERS:['_id','name'],
     //what event info show on list

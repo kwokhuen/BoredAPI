@@ -22,6 +22,10 @@ const EventSchema = new Schema({
     minlength: 50,
     trim: true
   },
+  max_attendees: {
+    type: Number,
+    required: true
+  },
   // start_time: {
   //   type: Date,
   //   required: true
@@ -58,6 +62,10 @@ EventSchema.methods.hasBlocked = function(user) {
 
 EventSchema.methods.wasRatedBy = function(user) {
   return this.rated_users.indexOf(user._id) !== -1;
+}
+
+EventSchema.methods.reachedMax = function() {
+  return this.max_attendees === this.attendees.length;
 }
 
 EventSchema.virtual('rating').get(function () {

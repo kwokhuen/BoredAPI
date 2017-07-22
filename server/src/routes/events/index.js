@@ -36,7 +36,7 @@ router.param('eventId', eventIdParam);
 // API: POST localhost:3000/events
 // permission: all logged-in users
 router.post('/', authenticate, (req, res, next) => {
-  let eventData = _.pick(req.body, ['name','description']);
+  let eventData = _.pick(req.body, ['name','description','max_attendees']);
   eventInfoValidation(eventData, next, false, ()=>{
     //if info valid, create the event
     var event = new Event(eventData);
@@ -195,6 +195,14 @@ router.post('/:eventId/attendees/:userId', authenticate,
     //check if userId_user already in attendees list
     if(res.eventId_event.isAttendee(res.userId_user)){
       let err = new Error('User ' + req.params.userId +' already in attendees list');
+      err.status = 409;
+      err.name = 'BadRequest';
+      err.target = 'attendee';
+      return next(err);
+    }
+    //check if event has reached max_attendees
+    if(res.eventId_event.reachedMax()){
+      let err = new Error('Event has reached max number of attendees');
       err.status = 409;
       err.name = 'BadRequest';
       err.target = 'attendee';

@@ -122,7 +122,7 @@ var userInfoValidation = (userInfo, next, update, callback) =>{
   fieldValidation(userInfo.age, 'age', true, 'number',
     badAge, function(field){
       return (field >= USER_INFO_CONST.MIN_AGE
-        || field <= USER_INFO_CONST.MAX_AGE);
+        && field <= USER_INFO_CONST.MAX_AGE);
   });
 
   //validate gender
