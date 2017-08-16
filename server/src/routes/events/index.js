@@ -4,9 +4,12 @@ const express = require('express');
 const router = express.Router();
 const _ = require('lodash');
 
-const {Event} = require('db/models/Event')
-const {User} = require('db/models/User')
-const {eventInfoValidation} = require('src/utils/eventInfoValidation')
+const {Event} = require('db/models/Event');
+const {User} = require('db/models/User');
+const {Location} = require('db/models/Location');
+
+const {eventInfoValidation} = require('src/utils/eventInfoValidation');
+
 const authenticate = require('src/middlewares/authenticate');
 
 const {userInfoDetail} = require('src/utils/userInfoDetail');
@@ -22,34 +25,82 @@ const {
   checkNotSelf,
   checkDidNotRateEvent } = require('src/middlewares/permission');
 
-const { userIdParam, eventIdParam } = require('src/middlewares/param');
+const validator = require('validator');
+
+const { userIdParam, eventIdParam, locationIdParam} = require('src/middlewares/param');
 
 // param middleware
 router.param('userId', userIdParam);
 router.param('eventId', eventIdParam);
+router.param('locationId', locationIdParam);
 
 // Routes
 
 // ------------------Event Collection--------------------
 
+// view events nearby
+// API: GET localhost:3000/events
+// permission: all logged-in users
+// router.get('/nearbyEvents', /*authenticate,*/ (req,res,next) => {
+
+
+//     let body = _.pick(req.body, ['lat','long','distance']);
+
+//     //3958.8 = radius of earth in miles
+//     const EARTH_RADIUS = 3958.8;
+//     let distance = body.distance/EARTH_RADIUS;
+
+//     Location.geoNear([body.long,body.lat],{maxDistance : distance, spherical : true, distanceMultiplier: EARTH_RADIUS},
+//         function(err, results, stats){
+//             if(err) return next(err);
+//             res.status(200).json(results);
+//         }
+//     );
+
+
+// });
+
 // create an event
 // API: POST localhost:3000/events
 // permission: all logged-in users
 router.post('/', authenticate, (req, res, next) => {
-  let eventData = _.pick(req.body, ['name','description','max_attendees']);
+  let eventData = _.pick(req.body, ['name','description','max_attendees','location_id']);
   eventInfoValidation(eventData, next, false, ()=>{
     //if info valid, create the event
-    var event = new Event(eventData);
-    event.admins.push(req.user);
-    event.attendees.push(req.user);
-    req.user.created_events.push(event);
-    req.user.attended_events.push(event);
-    event.save(function(err, createdEvent){
+
+    Location.findById(eventData.location_id, function(err, searchResult){
       if(err) return next(err);
-      req.user.save(function(err,user){
-        if(err) return next(err);
-        res.status(201).json(createdEvent);
-      });
+      if(!searchResult) {
+        var err = new Error('Location with ID '+eventData.location_id+' does not exist');
+        err.status = 404;
+        err.name = 'NotFound';
+        err.target = 'eventId';
+        return next(err);
+      } else {
+        let event = new Event({
+          'name':eventData.name,
+          'description':eventData.description,
+          'max_attendees':eventData.max_attendees,
+          'location':searchResult
+        });
+
+        event.admins.push(req.user);
+        event.attendees.push(req.user);
+        req.user.created_events.push(event);
+        req.user.attended_events.push(event);
+        searchResult.upcoming_events.push(event);
+
+        event.save(function(err, createdEvent){
+          if(err) return next(err);
+          req.user.save(function(err,user){
+            if(err) return next(err);
+            searchResult.save(function(err,location){
+              if(err) return next(err);
+              res.status(201).json(createdEvent);
+            });
+          });
+        });
+      }
     });
   });
 });
@@ -84,32 +135,82 @@ router.get('/:eventId', authenticate, (req,res,next) =>{
 // permission: event admins
 router.put('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
-    let eventData = _.pick(req.body, ['name','description']);
+    let eventData = _.pick(req.body, ['name','description','max_attendees','location_id']);
     eventInfoValidation(eventData, next, true, ()=>{
+
       for(let i in eventData){
-        //update event info
-        if(eventData[i]!==null)
-          res.eventId_event.set(i,eventData[i]);
-        else { //unset fields if they are null
-          res.eventId_event.set(i,undefined);
+        if(i!=='location_id'){
+          //update event info
+          if(eventData[i]!==null)
+            res.eventId_event.set(i,eventData[i]);
+          else { //unset fields if they are null
+            res.eventId_event.set(i,undefined);
+          }
         }
       };
-      res.eventId_event.save(function(err){
-        if(err) return next(err);
-        res.status(202).send();
-      });
+
+      if(!eventData.location_id){ //if location id is not specified
+        res.eventId_event.save(function(err) {
+          if(err) return next(err);
+          res.status(202).send('update successful');
+        });
+      } else { //if location is to be updated
+
+        //find new location
+        Location.findById(eventData.location_id, function(err, searchResult){
+          if(err) return next(err);
+          if(!searchResult) {
+            var err = new Error('Location with ID '+eventData.location_id+' does not exist');
+            err.status = 404;
+            err.name = 'NotFound';
+            err.target = 'eventId';
+            return next(err);
+          } else {
+
+            searchResult.upcoming_events.push(res.eventId_event);
+
+            //find old location
+            Location.findById(res.eventId_event.location._id, function(err, oldLocation){
+              if(err) return next(err);
+              oldLocation.upcoming_events.pull(res.eventId_event._id);
+              oldLocation.save(function(err){
+
+                if(err) return next(err);
+
+                res.eventId_event.location.save(function(err){
+                  if(err) return next(err);
+                  res.eventId_event.location = searchResult;
+                  res.eventId_event.save(function(err){
+                    if(err) return next(err);
+                    searchResult.save(function(err){
+                      if(err) return next(err);
+                      res.status(202).send('update successful.');
+                    });
+                  });
+                });
+              });
+            });
+          }
+        });
+      }
+
     });
   }
 );
+
 
 // Delete an event - the whole event will be terminated if the an admin decided to remove the event
 // API: DELETE localhost:3000/events/:eventId
 // permission: event admins
 router.delete('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
-    res.eventId_event.remove(function(err){
-      if(err){ return next(err);}
-      res.status(204).send();
+    Location.findById(res.eventId_event.location._id, function(err, oldLocation){
+      if(err) return next(err);
+      oldLocation.upcoming_events.pull(res.eventId_event._id);
+      res.eventId_event.remove(function(err){
+        if(err) return next(err);
+        res.status(204).send();
+      });
     });
   }
 );
@@ -426,3 +527,5 @@ router.delete('/:eventId/blockedUsers/:userId', authenticate,
 );
 
 module.exports = router;
+
+

@@ -3,10 +3,11 @@
 // import mongoose
 const {mongoose} = require('../mongoose');
 const Schema = mongoose.Schema;
+const _ = require('lodash');
 
 // import sub-schema
-//const {LocationSchema} = require('./LocationSchema');
-const {UserSchema} = require('./UserSchema')
+const {UserSchema} = require('./UserSchema');
+const {LocationSchema} = require('./LocationSchema');
 
 // user schema
 const EventSchema = new Schema({
@@ -24,6 +25,10 @@ const EventSchema = new Schema({
   },
   max_attendees: {
     type: Number,
+    required: true
+  },
+  location: {
+    type: LocationSchema,
     required: true
   },
   // start_time: {

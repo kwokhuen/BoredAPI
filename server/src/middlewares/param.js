@@ -2,6 +2,7 @@
 const validator = require('validator');
 const {User} = require('db/models/User');
 const {Event} = require('db/models/Event')
+const {Location} = require('db/models/Location')
 
 
 // whenever userId is in param
@@ -31,7 +32,7 @@ const userIdParam = function(req, res, next, id){
 }
 
 const eventIdParam = function(req, res, next, id){
-  // find the event from db based on userId and assign it to res.eventId_event
+  // find the event from db based on eventId and assign it to res.eventId_event
   if(!validator.isMongoId(id)){
     var err = new Error(id+' is not a valid Mongo object id');
     err.status = 404;
@@ -54,4 +55,28 @@ const eventIdParam = function(req, res, next, id){
   });
 }
 
-module.exports = { userIdParam, eventIdParam};
+const locationIdParam = function(req, res, next, id){
+  // find the event from db based on locationId and assign it to res.locationId_location
+  if(!validator.isMongoId(id)){
+    var err = new Error(id+' is not a valid Mongo object id');
+    err.status = 404;
+    err.name = 'NotFound';
+    err.target = 'eventId';
+    return next(err);
+  }
+  Location.findById(id, function(err, searchResult){
+    if(err) return next(err);
+    if(!searchResult) {
+      var err = new Error('Location with ID '+id+' does not exist');
+      err.status = 404;
+      err.name = 'NotFound';
+      err.target = 'eventId';
+      return next(err);
+    } else {
+      res.locationId_location = searchResult;
+      return next();
+    }
+  });
+}
+
+module.exports = { userIdParam, eventIdParam, locationIdParam};

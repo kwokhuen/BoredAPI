@@ -5,13 +5,14 @@ const router = express.Router();
 const _ = require('lodash');
 
 const {User} = require('db/models/User');
+const {Event} = require('db/models/Event');
 
 // ----------<for development use>-----------
 // get all users
 // API GET localhost:3000/users/dev
 router.get('/showAllUsers', (req,res) =>{
 	User.find({}, function(err, result){
-		if(err) return err;
+		if(err) return next(err);
 		res.status(200).json(result);
 	});
 });
@@ -114,7 +115,7 @@ router.post('/createFakeUsers', (req,res,next) =>{
 // API GET localhost:3000/events/dev
 router.get('/showAllEvents', (req,res,next) =>{
   Event.find({}, function(err, result){
-    if(err) return err;
+    if(err) return next(err);
     res.status(200).json(result);
   });
 });
