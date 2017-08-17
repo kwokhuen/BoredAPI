@@ -6,10 +6,11 @@ const _ = require('lodash');
 
 const {User} = require('db/models/User');
 const {Event} = require('db/models/Event');
+const {Location} = require('db/models/Location');
 
 // ----------<for development use>-----------
 // get all users
-// API GET localhost:3000/users/dev
+// API GET localhost:3000/dev
 router.get('/showAllUsers', (req,res) =>{
 	User.find({}, function(err, result){
 		if(err) return next(err);
@@ -19,7 +20,7 @@ router.get('/showAllUsers', (req,res) =>{
 
 // ----------<for development use>-----------
 // delete all users
-// API DELETE localhost:3000/users/dev
+// API POST localhost:3000/dev/deleteAllUsers
 router.post('/deleteAllUsers', (req,res) =>{
 	if(User.collection.drop()){
 		res.status(202).send();
@@ -30,7 +31,7 @@ router.post('/deleteAllUsers', (req,res) =>{
 
 // ----------<for development use>-----------
 // Create a list of fake users
-// API DELETE localhost:3000/users/dev
+// API POST localhost:3000/dev/createFakeUsers
 router.post('/createFakeUsers', (req,res,next) =>{
 	let user1 = new User({
 		"_id": "596ae5deddaa262f7586e8db",
@@ -109,25 +110,43 @@ router.post('/createFakeUsers', (req,res,next) =>{
 	}).catch(err=>{return next(err);})
 });
 
-
 // ----------<for development use>-----------
 // get all events
-// API GET localhost:3000/events/dev
+// API GET localhost:3000/dev/showAllEvents
 router.get('/showAllEvents', (req,res,next) =>{
-  Event.find({}, function(err, result){
-    if(err) return next(err);
-    res.status(200).json(result);
-  });
+    Event.find({}, function(err, result){
+        if(err) return next(err);
+        res.status(200).json(result);
+    });
 });
 
 // delete all events
-// API DELETE localhost:3000/events/dev
-router.post('/deleteAllUsers', (req,res,next) =>{
-  if(Event.collection.drop()){
-    res.status(202).send();
-  } else {
-    res.status(500).send("Error");
-  }
+// API POST localhost:3000/dev/deleteAllEvents
+router.post('/deleteAllEvents', (req,res,next) =>{
+    if(Event.collection.drop()){
+        res.status(202).send();
+    } else {
+        res.status(500).send("Error");
+    }
+});
+
+// show all locations
+// API GET localhost:3000/dev/showAllLocations
+router.get('/showAllLocations', (req,res,next) =>{
+    Location.find({}, function(err, result){
+        if(err) return err;
+        res.status(200).json(result);
+    });
+});
+
+// delete all locations
+// API POST localhost:3000/dev/deleteAllLocations
+router.post('/deleteAllLocations', (req,res,next) =>{
+    if(Location.collection.drop()){
+        res.status(202).send();
+    } else {
+        res.status(500).json("Error");
+    }
 });
 
 module.exports = router;

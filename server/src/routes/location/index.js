@@ -5,6 +5,7 @@ const router = express.Router();
 const _ = require('lodash');
 
 const {PERMISSION_SETTINGS_USER} = require('config/constants');
+const {LOCATION_CONST} = require('config/constants');
 
 const {User} = require('db/models/User');
 const {Event} = require('db/models/Event');
@@ -28,29 +29,10 @@ router.param('locationId', locationIdParam);
 //-------------------Routes-----------------------
 // ------------------Location Collection--------------------
 
-// show all locations
-// API GET localhost:3000/location
-router.get('/', (req,res,next) =>{
-    Location.find({}, function(err, result){
-        if(err) return err;
-        res.status(200).json(result);
-    });
-});
-
-// delete all locations
-// API DELETE localhost:3000/location
-router.delete('/', (req,res,next) =>{
-    if(Location.collection.drop()){
-        res.status(202).send();
-    } else {
-        res.status(500).json("Error");
-    }
-});
-
 // add new location
 // API: POST localhost:3000/location
 // permission: all logged-in users
-router.post('/', (req, res, next) => {
+router.post('/', authenticate, (req, res, next) => {
 
     let locationData = _.pick(req.body, ['name','type','lat','long','address']);
 
@@ -83,17 +65,33 @@ router.post('/', (req, res, next) => {
 });
 
 // show all locations near by
-// API POST localhost:3000/location/nearby
-router.post('/nearby', (req,res,next) =>{
-    let body = _.pick(req.body, ['lat','long','distance']);
+// API GET localhost:3000/location/nearby
+router.get('/nearby', authenticate, (req,res,next) =>{
 
-    //3958.8 = radius of earth in miles
-    const EARTH_RADIUS = 3958.8;
-    let distance = body.distance/EARTH_RADIUS;
+    if(!req.query.lat || !req.query.long){
+        var err = new Error('Latitude and longitude are not specified.');
+        err.status = 404;
+        err.name = 'Bad request';
+        err.target = 'location';
+        return next(err);
+    }
 
-    Location.geoNear([body.long,body.lat],{maxDistance : distance, spherical : true, distanceMultiplier: EARTH_RADIUS},
+    let queryInfo = {};
+
+    queryInfo.lat = Number(req.query.lat);
+    queryInfo.long = Number(req.query.long);
+    queryInfo.distance = Number(req.query.distance);
+
+    if(!queryInfo.distance)
+        queryInfo.distance = LOCATION_CONST.DEFAULT_SEARCH_RADIUS;
+
+    //calculate distance in miles
+    let distance = queryInfo.distance/LOCATION_CONST.EARTH_RADIUS;
+
+    Location.geoNear([queryInfo.long,queryInfo.lat],{maxDistance : distance, spherical : true, distanceMultiplier: LOCATION_CONST.EARTH_RADIUS},
         function(err, results, stats){
             if(err) return next(err);
+            console.log(stats);
             res.status(200).json(results);
         }
     );
@@ -103,7 +101,7 @@ router.post('/nearby', (req,res,next) =>{
 // get a location info
 // API GET localhost:3000/location/:locationId
 // permission: all logged-in users
-router.get('/:locationId', (req,res,next) =>{
+router.get('/:locationId', authenticate, (req,res,next) =>{
 
     let result = res.locationId_location.toJSON();;
     result.upcoming_events = res.locationId_location.upcoming_events;

@@ -27,10 +27,16 @@ const EventSchema = new Schema({
     type: Number,
     required: true
   },
+  // location: {
+  //   type: LocationSchema,
+  //   required: true
+  // },
   location: {
-    type: LocationSchema,
+    type: Schema.ObjectId,
+    ref:"Location",
     required: true
   },
+
   // start_time: {
   //   type: Date,
   //   required: true

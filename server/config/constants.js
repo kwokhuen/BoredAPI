@@ -16,6 +16,10 @@ module.exports = {
     MAX_DESCRIPTION_LENGTH: 200,
     MAX_ATTENDESS: 100
   },
+  LOCATION_CONST:{
+    DEFAULT_SEARCH_RADIUS: 10,
+    EARTH_RADIUS:3958.8
+  },
   PERMISSION_SETTINGS_USER:{
     ALL_FIELDS:['_id', 'username', 'displayName', 'firstName','lastName','age',
       'gender','profilePic','friends','friend_requests','blocked_users',
@@ -34,15 +38,15 @@ module.exports = {
   },
   PERMISSION_SETTINGS_EVENT:{
     ALL_FIELDS:['_id','name','description','max_attendees','admins','attendees','blocked_users',
-      'num_attendees','num_admins','rating'],
+      'num_attendees','num_admins','rating','location_name','address','city','zipcode','state'],
     ADMINS:['_id','name','description','max_attendees','admins','attendees','blocked_users',
-      'num_attendees','num_admins','rating'],
+      'num_attendees','num_admins','rating','location_name','address','city','zipcode','state'],
     ATTENDEES:['_id','name','description','max_attendees','admins','attendees','num_attendees',
-      'num_admins','rating'],
+      'num_admins','rating','location_name','address','city','zipcode','state'],
     USERS:['_id','name','description','max_attendees','admins','attendees','num_attendees',
-      'num_admins','rating'],
+      'num_admins','rating','location_name','address','city','zipcode','state'],
     BLOCKED_USERS:['_id','name'],
     //what event info show on list
-    LIST:['_id','name','description','num_attendees','num_admins','rating']
+    LIST:['_id','name','description','num_attendees','num_admins','rating','city']
   }
 }

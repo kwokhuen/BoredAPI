@@ -13,6 +13,7 @@ const {userInfoValidation} = require('src/utils/userInfoValidation');
 const authenticate = require('src/middlewares/authenticate');
 
 const {userInfoDetail} = require('src/utils/userInfoDetail');
+const {eventInfoDetail} = require('src/utils/eventInfoDetail');
 
 const {
   checkNotBlockedByUser,
@@ -119,9 +120,9 @@ router.get('/:userId/attended_events', authenticate, (req, res, next) => {
       let the_event_info = {};
 
       if(!events[index].hasBlocked(req.user))
-        the_event_info = userInfoDetail(req.user, events[index], PERMISSION_SETTINGS_USER.FRIENDS_FRIENDS);
+        the_event_info = eventInfoDetail(req.user, events[index], null, PERMISSION_SETTINGS_EVENT.LIST);
       else
-        the_event_info = userInfoDetail(req.user, events[index], PERMISSION_SETTINGS_USER.BLOCKED_USERS);
+        the_event_info = eventInfoDetail(req.user, events[index], null, PERMISSION_SETTINGS_EVENT.BLOCKED_USERS);
 
       result.push(the_event_info);
     }

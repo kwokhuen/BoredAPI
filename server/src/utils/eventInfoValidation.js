@@ -63,7 +63,7 @@ var eventInfoValidation = (eventInfo, next, update, callback) =>{
   const badMaxAttendees = 'max_attendees must be less than '
     + EVENT_INFO_CONST.MAX_ATTENDESS;
 
-  const invalidLocationId = eventInfo.location_id+' is not a valid Mongo ID ';
+  const invalidLocationId = eventInfo.location+' is not a valid Mongo ID ';
 
   //validate fields
   fieldValidation(eventInfo.name, 'name', true, 'string',
@@ -84,7 +84,7 @@ var eventInfoValidation = (eventInfo, next, update, callback) =>{
         && field <= EVENT_INFO_CONST.MAX_ATTENDESS);
   });
 
-  fieldValidation(eventInfo.location_id, 'location_id', true, 'string',
+  fieldValidation(eventInfo.location, 'location', true, 'string',
     invalidLocationId, function(field){
       return validator.isMongoId(field);
   });

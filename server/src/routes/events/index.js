@@ -13,9 +13,11 @@ const {eventInfoValidation} = require('src/utils/eventInfoValidation');
 const authenticate = require('src/middlewares/authenticate');
 
 const {userInfoDetail} = require('src/utils/userInfoDetail');
+const {eventInfoDetail} = require('src/utils/eventInfoDetail');
 
 const {PERMISSION_SETTINGS_USER} = require('config/constants');
 const {PERMISSION_SETTINGS_EVENT} = require('config/constants');
+const {LOCATION_CONST} = require('config/constants');
 
 const {
   grantSelf,
@@ -41,37 +43,86 @@ router.param('locationId', locationIdParam);
 // view events nearby
 // API: GET localhost:3000/events
 // permission: all logged-in users
-// router.get('/nearbyEvents', /*authenticate,*/ (req,res,next) => {
+router.get('/nearby', authenticate, (req,res,next) => {
 
+    if(!req.query.lat || !req.query.long){
+        var err = new Error('Latitude and longitude are not specified.');
+        err.status = 404;
+        err.name = 'Bad request';
+        err.target = 'location';
+        return next(err);
+    }
 
-//     let body = _.pick(req.body, ['lat','long','distance']);
+    let queryInfo = {};
 
-//     //3958.8 = radius of earth in miles
-//     const EARTH_RADIUS = 3958.8;
-//     let distance = body.distance/EARTH_RADIUS;
+    queryInfo.lat = Number(req.query.lat);
+    queryInfo.long = Number(req.query.long);
+    queryInfo.distance = Number(req.query.distance);
 
-//     Location.geoNear([body.long,body.lat],{maxDistance : distance, spherical : true, distanceMultiplier: EARTH_RADIUS},
-//         function(err, results, stats){
-//             if(err) return next(err);
-//             res.status(200).json(results);
-//         }
-//     );
+    if(!queryInfo.distance)
+        queryInfo.distance = LOCATION_CONST.DEFAULT_SEARCH_RADIUS;
 
+    //calculate distance in miles
+    let distance = queryInfo.distance/LOCATION_CONST.EARTH_RADIUS;
 
-// });
+    Location.geoNear([queryInfo.long,queryInfo.lat],
+        {maxDistance : distance, spherical : true, distanceMultiplier: LOCATION_CONST.EARTH_RADIUS},
+        function(err, resultLocations, stats){
+            if(err) return next(err);
+            let nearbyEventIDs = [];
+            let locationTable = {};
+            let distanceTable = {};
+            //store a list of nearby event IDs
+            for(let index in resultLocations){
+              let eventIdArray = resultLocations[index].obj.upcoming_events.toObject();
+              for(let i in eventIdArray){
+                nearbyEventIDs.push(eventIdArray[i]);
+                locationTable[eventIdArray[i]]= index;
+                distanceTable[eventIdArray[i]]= resultLocations[index].dis;
+              }
+            }
+            // locationTable:
+            // { eventId : locationIndex}
+
+            // distanceTable:
+            // { eventId : distance}
+
+            //retrieve the nearby events with their IDs
+            Event.find({'_id': {$in:nearbyEventIDs}}, function(err,events){
+              if(err) return next(err);
+
+              let results = [];
+
+              for(let index in events){
+                let locationInfo = resultLocations[locationTable[events[index]._id]].obj;
+                let the_event_info = {};
+
+                if(!events[index].hasBlocked(req.user))
+                  the_event_info = eventInfoDetail(req.user, events[index], locationInfo, PERMISSION_SETTINGS_EVENT.LIST);
+                else
+                  the_event_info = eventInfoDetail(req.user, events[index], locationInfo, PERMISSION_SETTINGS_EVENT.BLOCKED_USERS);
+
+                the_event_info.distance = distanceTable[events[index]._id];
+                results.push(the_event_info);
+              }
+              res.status(200).json(results);              
+            });
+        }
+    );
+});
 
 // create an event
 // API: POST localhost:3000/events
 // permission: all logged-in users
 router.post('/', authenticate, (req, res, next) => {
-  let eventData = _.pick(req.body, ['name','description','max_attendees','location_id']);
+  let eventData = _.pick(req.body, ['name','description','max_attendees','location']);
   eventInfoValidation(eventData, next, false, ()=>{
     //if info valid, create the event
 
-    Location.findById(eventData.location_id, function(err, searchResult){
+    Location.findById(eventData.location, function(err, searchResult){
       if(err) return next(err);
       if(!searchResult) {
-        var err = new Error('Location with ID '+eventData.location_id+' does not exist');
+        var err = new Error('Location with ID '+eventData.location+' does not exist');
         err.status = 404;
         err.name = 'NotFound';
         err.target = 'eventId';
@@ -81,7 +132,7 @@ router.post('/', authenticate, (req, res, next) => {
           'name':eventData.name,
           'description':eventData.description,
           'max_attendees':eventData.max_attendees,
-          'location':searchResult
+          'location':eventData.location
         });
 
         event.admins.push(req.user);
@@ -113,21 +164,25 @@ router.post('/', authenticate, (req, res, next) => {
 router.get('/:eventId', authenticate, (req,res,next) =>{
   let result = {};
 
-  //friend
-  if(res.eventId_event.isAdmin(req.user)){
-    result = eventInfoDetail(req.user, res.eventId_event, PERMISSION_SETTINGS_EVENT.ADMINS);
-  } //blocked by userId_user
-  else if(res.eventId_event.isAttendee(req.user)){
-    result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.ATTENDEES);
-  } //has blocked userId_user
-  else if(res.eventId_event.hasBlocked(req.user)){
-    result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.BLOCKED_USERS);
-  }
-  //everyone else
-  else {
-    result = userInfoDetail(req.user, res.userId_user, PERMISSION_SETTINGS_USER.USERS);
-  }
-  res.status(200).json(result);
+  Location.findById(res.eventId_event.location, function(err, location){
+    if(err) return next(err);
+
+    //friend
+    if(res.eventId_event.isAdmin(req.user)){
+      result = eventInfoDetail(req.user, res.eventId_event, location, PERMISSION_SETTINGS_EVENT.ADMINS);
+    } //blocked by userId_user
+    else if(res.eventId_event.isAttendee(req.user)){
+      result = eventInfoDetail(req.user, res.userId_user, location, PERMISSION_SETTINGS_USER.ATTENDEES);
+    } //has blocked userId_user
+    else if(res.eventId_event.hasBlocked(req.user)){
+      result = eventInfoDetail(req.user, res.userId_user, location, PERMISSION_SETTINGS_USER.BLOCKED_USERS);
+    }
+    //everyone else
+    else {
+      result = eventInfoDetail(req.user, res.userId_user, location, PERMISSION_SETTINGS_USER.USERS);
+    }
+    res.status(200).json(result);
+  });
 });
 
 // update event info
@@ -135,11 +190,11 @@ router.get('/:eventId', authenticate, (req,res,next) =>{
 // permission: event admins
 router.put('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
-    let eventData = _.pick(req.body, ['name','description','max_attendees','location_id']);
+    let eventData = _.pick(req.body, ['name','description','max_attendees','location']);
     eventInfoValidation(eventData, next, true, ()=>{
 
       for(let i in eventData){
-        if(i!=='location_id'){
+        if(i!=='location'){
           //update event info
           if(eventData[i]!==null)
             res.eventId_event.set(i,eventData[i]);
@@ -149,7 +204,7 @@ router.put('/:eventId', authenticate, grantAdmin, checkPermission,
         }
       };
 
-      if(!eventData.location_id){ //if location id is not specified
+      if(!eventData.location){ //if location  is not specified
         res.eventId_event.save(function(err) {
           if(err) return next(err);
           res.status(202).send('update successful');
@@ -157,35 +212,33 @@ router.put('/:eventId', authenticate, grantAdmin, checkPermission,
       } else { //if location is to be updated
 
         //find new location
-        Location.findById(eventData.location_id, function(err, searchResult){
+        Location.findById(eventData.location, function(err, newLocation){
           if(err) return next(err);
-          if(!searchResult) {
-            var err = new Error('Location with ID '+eventData.location_id+' does not exist');
+          if(!newLocation) {
+            var err = new Error('Location with ID '+eventData.location+' does not exist');
             err.status = 404;
             err.name = 'NotFound';
-            err.target = 'eventId';
+            err.target = 'locationId';
             return next(err);
           } else {
 
-            searchResult.upcoming_events.push(res.eventId_event);
-
             //find old location
-            Location.findById(res.eventId_event.location._id, function(err, oldLocation){
+            Location.findById(res.eventId_event.location, function(err, oldLocation){
               if(err) return next(err);
+
+              //update old location, new location and event
+              newLocation.upcoming_events.push(res.eventId_event);
               oldLocation.upcoming_events.pull(res.eventId_event._id);
+              res.eventId_event.location = newLocation._id;
+
+              //save changes
               oldLocation.save(function(err){
-
                 if(err) return next(err);
-
-                res.eventId_event.location.save(function(err){
+                res.eventId_event.save(function(err){
                   if(err) return next(err);
-                  res.eventId_event.location = searchResult;
-                  res.eventId_event.save(function(err){
+                  newLocation.save(function(err){
                     if(err) return next(err);
-                    searchResult.save(function(err){
-                      if(err) return next(err);
-                      res.status(202).send('update successful.');
-                    });
+                    res.status(202).send('update successful.');
                   });
                 });
               });
@@ -193,18 +246,16 @@ router.put('/:eventId', authenticate, grantAdmin, checkPermission,
           }
         });
       }
-
     });
   }
 );
-
 
 // Delete an event - the whole event will be terminated if the an admin decided to remove the event
 // API: DELETE localhost:3000/events/:eventId
 // permission: event admins
 router.delete('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
-    Location.findById(res.eventId_event.location._id, function(err, oldLocation){
+    Location.findById(res.eventId_event.location, function(err, oldLocation){
       if(err) return next(err);
       oldLocation.upcoming_events.pull(res.eventId_event._id);
       res.eventId_event.remove(function(err){
