@@ -88,13 +88,12 @@ router.get('/nearby', authenticate, (req,res,next) =>{
     //calculate distance in miles
     let distance = queryInfo.distance/LOCATION_CONST.EARTH_RADIUS;
 
-    Location.geoNear([queryInfo.long,queryInfo.lat],{maxDistance : distance, spherical : true, distanceMultiplier: LOCATION_CONST.EARTH_RADIUS},
-        function(err, results, stats){
+    Location.geoNear([queryInfo.long,queryInfo.lat],{maxDistance : distance, spherical : true, distanceMultiplier: LOCATION_CONST.EARTH_RADIUS}
+        ,function(err, results, stats){
             if(err) return next(err);
             console.log(stats);
             res.status(200).json(results);
-        }
-    );
+        });
 });
 
 
@@ -104,7 +103,7 @@ router.get('/nearby', authenticate, (req,res,next) =>{
 router.get('/:locationId', authenticate, (req,res,next) =>{
 
     let result = res.locationId_location.toJSON();;
-    result.upcoming_events = res.locationId_location.upcoming_events;
+    result.events = res.locationId_location.events;
     result.past_events = res.locationId_location.past_events;
     res.status(200).json(result);
 });

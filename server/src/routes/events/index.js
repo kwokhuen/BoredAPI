@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const _ = require('lodash');
+const moment = require('moment');
 
 const {Event} = require('db/models/Event');
 const {User} = require('db/models/User');
@@ -65,6 +66,45 @@ router.get('/nearby', authenticate, (req,res,next) => {
     //calculate distance in miles
     let distance = queryInfo.distance/LOCATION_CONST.EARTH_RADIUS;
 
+
+    // Event.aggregate(
+    //     { $unwind: '$location'}
+        // {
+        //   $match:{
+        //     start_time:{
+        //       $gte: new Date()
+        //     },
+        //   }
+        // }
+        // {$geoNear:{
+        // near: [queryInfo.long,queryInfo.lat],
+        // distanceField: "dist.calculated",
+        // includeLocs: "dist.location",
+        // maxDistance: distance,
+        // spherical: true,
+        // distanceMultiplier: LOCATION_CONST.EARTH_RADIUS
+        // }}
+      //).
+      // where('locationslookup.state').equals('California').
+      // near('locationslookup',{ center: [queryInfo.long,queryInfo.lat], spherical: true, maxDistance: 999999}).
+      // exec(function(err, results){
+      //   if(err) next(err);
+      //   res.status(200).json(results);              
+      // });
+
+    // Location.aggregate(
+    //   {$geoNear:{
+    //   near: [queryInfo.long,queryInfo.lat],
+    //   distanceField: "dist.calculated",
+    //   includeLocs: "dist.location",
+    //   maxDistance: distance,
+    //   spherical: true,
+    //   distanceMultiplier: LOCATION_CONST.EARTH_RADIUS
+    //   }
+    // }).exec(function(err,locations){
+    //   res.json(locations);
+    // })
+
     Location.geoNear([queryInfo.long,queryInfo.lat],
         {maxDistance : distance, spherical : true, distanceMultiplier: LOCATION_CONST.EARTH_RADIUS},
         function(err, resultLocations, stats){
@@ -74,7 +114,7 @@ router.get('/nearby', authenticate, (req,res,next) => {
             let distanceTable = {};
             //store a list of nearby event IDs
             for(let index in resultLocations){
-              let eventIdArray = resultLocations[index].obj.upcoming_events.toObject();
+              let eventIdArray = resultLocations[index].obj.events.toObject();
               for(let i in eventIdArray){
                 nearbyEventIDs.push(eventIdArray[i]);
                 locationTable[eventIdArray[i]]= index;
@@ -83,12 +123,13 @@ router.get('/nearby', authenticate, (req,res,next) => {
             }
             // locationTable:
             // { eventId : locationIndex}
-
             // distanceTable:
             // { eventId : distance}
 
             //retrieve the nearby events with their IDs
-            Event.find({'_id': {$in:nearbyEventIDs}}, function(err,events){
+            Event.find({'_id': {$in:nearbyEventIDs}}).
+              where('start_time').gte(new Date()). //not started yet
+              exec(function(err,events){
               if(err) return next(err);
 
               let results = [];
@@ -109,13 +150,14 @@ router.get('/nearby', authenticate, (req,res,next) => {
             });
         }
     );
-});
 
+});
+  
 // create an event
 // API: POST localhost:3000/events
 // permission: all logged-in users
 router.post('/', authenticate, (req, res, next) => {
-  let eventData = _.pick(req.body, ['name','description','max_attendees','location']);
+  let eventData = _.pick(req.body, ['name','description','max_attendees','location','start_time','end_time']);
   eventInfoValidation(eventData, next, false, ()=>{
     //if info valid, create the event
 
@@ -128,18 +170,24 @@ router.post('/', authenticate, (req, res, next) => {
         err.target = 'eventId';
         return next(err);
       } else {
+        let start_time = new Date(eventData.start_time+" UTC");
+        let end_time = new Date(eventData.end_time+" UTC");
+
+        //create the event
         let event = new Event({
           'name':eventData.name,
           'description':eventData.description,
           'max_attendees':eventData.max_attendees,
-          'location':eventData.location
+          'location':eventData.location,
+          'start_time':start_time,
+          'end_time':end_time
         });
 
         event.admins.push(req.user);
         event.attendees.push(req.user);
         req.user.created_events.push(event);
         req.user.attended_events.push(event);
-        searchResult.upcoming_events.push(event);
+        searchResult.events.push(event);
 
         event.save(function(err, createdEvent){
           if(err) return next(err);
@@ -227,8 +275,8 @@ router.put('/:eventId', authenticate, grantAdmin, checkPermission,
               if(err) return next(err);
 
               //update old location, new location and event
-              newLocation.upcoming_events.push(res.eventId_event);
-              oldLocation.upcoming_events.pull(res.eventId_event._id);
+              newLocation.events.push(res.eventId_event);
+              oldLocation.events.pull(res.eventId_event._id);
               res.eventId_event.location = newLocation._id;
 
               //save changes
@@ -257,7 +305,7 @@ router.delete('/:eventId', authenticate, grantAdmin, checkPermission,
   (req, res, next) => {
     Location.findById(res.eventId_event.location, function(err, oldLocation){
       if(err) return next(err);
-      oldLocation.upcoming_events.pull(res.eventId_event._id);
+      oldLocation.events.pull(res.eventId_event._id);
       res.eventId_event.remove(function(err){
         if(err) return next(err);
         res.status(204).send();
@@ -269,7 +317,7 @@ router.delete('/:eventId', authenticate, grantAdmin, checkPermission,
 //------------actions----------------
 
 // Rate eventId_event
-// API: POST /events/:eventId/rate
+// API: POST localhost:3000/events/:eventId/rate
 // permission: event attendees
 router.post('/:eventId/rate', authenticate, grantAttendee, checkPermission, checkDidNotRateEvent,
   (req, res, next) => {
@@ -313,7 +361,7 @@ router.post('/:eventId/rate', authenticate, grantAttendee, checkPermission, chec
 //---------------Event Attendee Collection--------------
 
 // Get the whole list of attendees of an event
-// API: GET /events/:eventId/attendees
+// API: GET localhost:3000/events/:eventId/attendees
 // permission: all logged-in users
 router.get('/:eventId/attendees', authenticate, (req,res,next) =>{
   Event.findOne({ _id: req.params.eventId}).populate('attendees').exec(function(err,event){
@@ -331,7 +379,7 @@ router.get('/:eventId/attendees', authenticate, (req,res,next) =>{
 //-------------------Event Attendee -------------------
 
 // Add userId_user to the attendees list
-// API: POST /events/:eventId/attendees/:userId
+// API: POST localhost:3000/events/:eventId/attendees/:userId
 // permission: userId_user
 router.post('/:eventId/attendees/:userId', authenticate,
   grantSelf, checkPermission,
@@ -361,7 +409,7 @@ router.post('/:eventId/attendees/:userId', authenticate,
       return next(err);
     }
     res.eventId_event.attendees.push(res.userId_user);
-    res.userId_user.attended_events.push(event);
+    res.userId_user.attended_events.push(res.eventId_event);
 
     res.eventId_event.save(function(err, event){
       if(err) return next(err);

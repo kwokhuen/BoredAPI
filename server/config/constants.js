@@ -38,15 +38,20 @@ module.exports = {
   },
   PERMISSION_SETTINGS_EVENT:{
     ALL_FIELDS:['_id','name','description','max_attendees','admins','attendees','blocked_users',
-      'num_attendees','num_admins','rating','location_name','address','city','zipcode','state'],
+      'num_attendees','num_admins','rating','location_name','address','city','zipcode','state',
+      'start_time','end_time','is_ongoing','has_ended'],
     ADMINS:['_id','name','description','max_attendees','admins','attendees','blocked_users',
-      'num_attendees','num_admins','rating','location_name','address','city','zipcode','state'],
+      'num_attendees','num_admins','rating','location_name','address','city','zipcode','state',
+      'start_time','end_time','is_ongoing','has_ended'],
     ATTENDEES:['_id','name','description','max_attendees','admins','attendees','num_attendees',
-      'num_admins','rating','location_name','address','city','zipcode','state'],
+      'num_admins','rating','location_name','address','city','zipcode','state','start_time',
+      'end_time','is_ongoing','has_ended'],
     USERS:['_id','name','description','max_attendees','admins','attendees','num_attendees',
-      'num_admins','rating','location_name','address','city','zipcode','state'],
+      'num_admins','rating','location_name','address','city','zipcode','state','start_time',
+      'end_time','is_ongoing','has_ended'],
     BLOCKED_USERS:['_id','name'],
     //what event info show on list
-    LIST:['_id','name','description','num_attendees','num_admins','rating','city']
+    LIST:['_id','name','description','num_attendees','num_admins','rating','city','start_time',
+    'end_time','is_ongoing','has_ended']
   }
 }

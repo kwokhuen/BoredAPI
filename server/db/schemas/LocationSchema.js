@@ -33,19 +33,19 @@ const LocationSchema = new Schema({
     address:{
         type: String
     },
-    past_events: [{type:Schema.ObjectId, ref:"Event"}],
-    upcoming_events: [{type:Schema.ObjectId, ref:"Event"}]
+    events: [{type:Schema.ObjectId, ref:"Event"}]
 });
 
-LocationSchema.virtual('num_upcoming_events').get(function () {
-  return this.upcoming_events.length;
+LocationSchema.index({ coordinates: "2dsphere" }); 
+LocationSchema.virtual('num_events').get(function () {
+  return this.events.length;
 });
 
 //override mongoose to only send needed info
 LocationSchema.methods.toJSON = function() {
-  let locationObject = this.toObject();
-  locationObject.num_upcoming_events = this.num_upcoming_events;
-  locationObject = _.pick(locationObject,['name','city','state','zipcode','address','num_upcoming_events','_id']);
+  let locationObject = this.toObject({virtuals:true});
+
+  // locationObject = _.pick(locationObject,['name','city','state','zipcode','address','num_events','_id']);
   return locationObject;
 }
 

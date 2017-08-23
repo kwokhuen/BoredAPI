@@ -12,7 +12,7 @@ const Schema = mongoose.Schema;
 
 const {EventSchema} = require('./EventSchema')
 
-const {PERMISSION_SETTINGS} = require('config/constants');
+const {PERMISSION_SETTINGS_USER} = require('config/constants');
 
 // import sub-schema
 // const {LocationSchema} = require('./LocationSchema');
@@ -158,9 +158,8 @@ UserSchema.methods.removeToken = function(token) {
 
 //override mongoose to only send needed info
 UserSchema.methods.toJSON = function() {
-  let userObject = this.toObject();
-  userObject.rating = this.rating;
-  //userObject = _.pick(userObject,PERMISSION_SETTINGS_USER.ALL_FIELDS);
+  let userObject = this.toObject({virtuals:true});
+  userObject = _.pick(userObject,PERMISSION_SETTINGS_USER.ALL_FIELDS);
   return userObject;
 }
 

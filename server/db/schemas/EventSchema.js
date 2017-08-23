@@ -8,6 +8,7 @@ const _ = require('lodash');
 // import sub-schema
 const {UserSchema} = require('./UserSchema');
 const {LocationSchema} = require('./LocationSchema');
+const {EVENT_INFO_CONST,PERMISSION_SETTINGS_EVENT} = require('config/constants');
 
 // user schema
 const EventSchema = new Schema({
@@ -20,7 +21,7 @@ const EventSchema = new Schema({
   description: {
     type: String,
     required: true,
-    minlength: 50,
+    minlength: EVENT_INFO_CONST.MIN_DESCRIPTION_LENGTH,
     trim: true
   },
   max_attendees: {
@@ -37,14 +38,15 @@ const EventSchema = new Schema({
     required: true
   },
 
-  // start_time: {
-  //   type: Date,
-  //   required: true
-  // },
-  // end_time: {
-  //   type: Date,
-  //   required: true
-  // },
+  start_time: {
+    type: Date,
+    required: true
+  },
+  end_time: {
+    type: Date,
+    required: true
+  },
+
   admins: [{type:Schema.ObjectId, ref:"User"}],
   attendees: [{type:Schema.ObjectId, ref:"User"}],
   blocked_users: [{type:Schema.ObjectId, ref:"User"}],
@@ -90,16 +92,28 @@ EventSchema.virtual('num_attendees').get(function () {
 });
 
 EventSchema.virtual('num_admins').get(function () {
-  return this.attendees.length;
+  return this.admins.length;
+});
+
+EventSchema.virtual('not_started').get(function () {
+  let now = new Date();
+  return now <=this.start_time;
+});
+
+EventSchema.virtual('is_ongoing').get(function () {
+  let now = new Date();
+  return this.start_time <= now && now <=this.end_time;
+});
+
+EventSchema.virtual('has_ended').get(function () {
+  let now = new Date();
+  return this.end_time <= now;
 });
 
 //override mongoose to only send needed info
 EventSchema.methods.toJSON = function() {
-  let eventObject = this.toObject();
-  eventObject.num_attendees = this.num_attendees;
-  eventObject.num_admins = this.num_admins;
-  eventObject.rating = this.rating;
-  //eventObject = _.pick(eventObject,PERMISSION_SETTINGS_EVENT.ALL_FIELDS);
+  let eventObject = this.toObject({virtuals:true});
+  eventObject = _.pick(eventObject,PERMISSION_SETTINGS_EVENT.ALL_FIELDS);
   return eventObject;
 }
 

@@ -8,6 +8,12 @@ const {DB_CONFIG} = require('config/database');
 mongoose.Promise = global.Promise;
 // connect mongoose to local development db
 // mondifiy the address
-mongoose.connect(DB_CONFIG.DOMAIN);
 
-module.exports = {mongoose};
+mongoose.connect(DB_CONFIG.DOMAIN,function(err,db){
+    if(err) return console.log(err);
+    console.log('mongoDB connected')
+});
+
+let db = mongoose.connection;
+
+module.exports = {mongoose,db};

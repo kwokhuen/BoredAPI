@@ -9,6 +9,13 @@ const bodyParser = require('body-parser');
 const passport = require('passport');
 // requiring dev dependencies
 const logger = require('morgan');
+
+//seed data
+const {db} = require('db/mongoose');
+const generateUserSeed = require('db/seed_data/user_seed.js');
+const generateEventSeed = require('db/seed_data/event_seed.js');
+const generateLocationSeed = require('db/seed_data/location_seed.js');
+
 // routing
 const index = require('src/routes/index');
 const events = require('src/routes/events');
@@ -68,4 +75,17 @@ app.use(function(err, req, res, next){
 // start server
 app.listen(DEV_CONFIG.PORT, () => {
   console.log(`Server starting on Port ${DEV_CONFIG.PORT}`)
+});
+
+db.once('open',function(){
+    console.log('db connection open');
+    generateUserSeed(function(){
+      console.log("user seed generated")
+    });
+    generateEventSeed(function(){
+      console.log("event seed generated")
+    });
+    generateLocationSeed(function(){
+      console.log("location seed generated")
+    });
 });
